@@ -1560,6 +1560,7 @@ export const dashboardLinks = {
   ],
   main_admin: [
     { label: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
+    { label: "Youth Outreach", url: "/admin/outreach", icon: Users },
     { label: "Profile", url: "/admin/dashboard?profile=true", icon: User },
     { label: "Teacher Panel", url: "/teacher/dashboard", icon: GraduationCap },
     { label: "Preachers / Teachers", url: "/admin/teachers", icon: Shield },
@@ -1625,6 +1626,7 @@ const sectionOf = (url = "") => {
     "home-sections": "home-sections",
     "about-sections": "about-sections",
     dashboard: "dashboard",
+    outreach: "outreach",
     roles: "roles",
     staff: "roles",
     banners: "banners",

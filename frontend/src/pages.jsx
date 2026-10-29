@@ -84,8 +84,6 @@ import { apiFetch, assetUrl, uploadFile, API_URL } from "./api";
 import { useAuth } from "./AuthContext";
 import { usePermissions } from "./usePermissions";
 import { useHomepageSections } from "./useHomepageSections";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
 import {
   benefits as fallbackBenefits,
   blogs as fallbackBlogs,
@@ -144,7 +142,7 @@ const useSingle = (path, fallback = null, key = "item") => {
 
 /* Staff roles all land in the admin panel; everyone else keeps the
    destination they had before. */
-const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer"];
+const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer", "outreach_coordinator", "attendance_operator"];
 const homeFor = (role) =>
   STAFF_ROLES.includes(role) ? "/admin/dashboard" : role === "teacher" ? "/teacher/dashboard" : "/student/dashboard";
 
@@ -6259,7 +6257,7 @@ export const AdminCoursesPage = () => {
           <input value={textValue(form.slug)} onChange={(event) => setForm({ ...form, slug: event.target.value })} placeholder="Course slug" className="rounded-xl border border-black/10 px-4 py-3" />
           <textarea value={textValue(form.shortDescription)} onChange={(event) => setForm({ ...form, shortDescription: event.target.value })} placeholder="Short description" rows="3" className="rounded-xl border border-black/10 px-4 py-3 md:col-span-2" />
           <div className="md:col-span-2">
-            <ReactQuill theme="snow" value={textValue(form.description)} onChange={(val) => setForm({ ...form, description: val })} placeholder="Full course description" className="bg-white" />
+            <textarea rows="8" value={textValue(form.description)} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Full course description" className="w-full rounded-xl border border-slate-200 bg-white p-3" />
           </div>
           
           <div className="grid gap-1 md:col-span-2">
@@ -6534,7 +6532,7 @@ export const AdminCourseLessonsPage = () => {
           <input value={textValue(form.duration)} onChange={(event) => setForm({ ...form, duration: event.target.value })} placeholder="Lesson duration" className="rounded-xl border border-black/10 px-4 py-3" />
           <input type="number" value={numberValue(form.completionThreshold)} onChange={(event) => setForm({ ...form, completionThreshold: event.target.value })} placeholder="Completion threshold %" className="rounded-xl border border-black/10 px-4 py-3" />
           <div className="md:col-span-2">
-            <ReactQuill theme="snow" value={textValue(form.description)} onChange={(val) => setForm({ ...form, description: val })} placeholder="Lesson description" className="bg-white" />
+            <textarea rows="8" value={textValue(form.description)} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Lesson description" className="w-full rounded-xl border border-slate-200 bg-white p-3" />
           </div>
           <select value={form.videoType || "youtube"} onChange={(event) => setForm({ ...form, videoType: event.target.value })} className="rounded-xl border border-black/10 px-4 py-3"><option value="youtube">YouTube URL</option><option value="upload">Upload video</option></select>
           <label className="flex items-center gap-3 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold"><input type="checkbox" checked={boolValue(form.isActive)} onChange={(event) => setForm({ ...form, isActive: event.target.checked })} />Active</label>
@@ -6713,7 +6711,7 @@ export const AdminLessonContentPage = () => {
           </div>
 
           <div className="md:col-span-2">
-            <ReactQuill theme="snow" value={form.description || ""} onChange={(val) => setForm({ ...form, description: val })} placeholder="Description (Optional)" className="bg-white" />
+            <textarea rows="8" value={form.description || ""} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Description (Optional)" className="w-full rounded-xl border border-slate-200 bg-white p-3" />
           </div>
 
           {form.type === "video" && (

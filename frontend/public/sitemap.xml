@@ -5,100 +5,100 @@
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <!-- Dynamic AI- & Google-Optimized Sitemap for ISKCON Juhu Self-Excellence -->
-  <!-- Total Indexed URLs: 41 | Generated: 2026-10-26T22:08:35.931Z -->
+  <!-- Total Indexed URLs: 19 | Generated: 2026-10-29T07:05:52.584Z -->
   <url>
     <loc>https://iskconselfexcellence.online/</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/courses</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/classes</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/books</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/trips</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/blogs</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/video-blogs</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/visionaries</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/gallery/images</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/gallery/videos</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/about</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/contact</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/sitemap</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/privacy-policy</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/terms-and-conditions</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/courses/how-to-improve-your-japa</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <image:image>
@@ -109,7 +109,7 @@
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/courses/bhagavad-gita</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <image:image>
@@ -120,7 +120,7 @@
   </url>
   <url>
     <loc>https://iskconselfexcellence.online/courses/brahmacharya-classes</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <image:image>
@@ -130,74 +130,8 @@
     </image:image>
   </url>
   <url>
-    <loc>https://iskconselfexcellence.online/courses/bhagavad-gita-foundations</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/courses/1782480668022-bhagavad-gita-as-it-is-1.jpg</image:loc>
-      <image:title>Bhagavad-gita Foundations</image:title>
-      <image:caption>The Gita in eighteen sessions, read as a practical manual rather than a historical text.</image:caption>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/courses/vaishnava-etiquette-and-culture</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/courses/1783173863993-bhagavatam.jpg</image:loc>
-      <image:title>Vaishnava Etiquette and Culture</image:title>
-      <image:caption>How devotees relate to one another, and why it matters.</image:caption>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/courses/self-excellence-for-students</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/courses/1783173823917-bhagavad-gita-as-it-is-1.jpg</image:loc>
-      <image:title>Self-Excellence for Students</image:title>
-      <image:caption>Study habits, focus and character, drawn from Vedic principles.</image:caption>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/courses/japa-and-daily-sadhana</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/courses/1783106399937-isckon-disicple.jpg</image:loc>
-      <image:title>Japa and Daily Sadhana</image:title>
-      <image:caption>Building a chanting practice that survives a working week.</image:caption>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/courses/the-guru-disciple-relationship</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/courses/1782480993426-guru_disciple.jpg</image:loc>
-      <image:title>The Guru-Disciple Relationship</image:title>
-      <image:caption>What guidance means in practice, and how the tradition understands it.</image:caption>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/courses/srimad-bhagavatam-study-circle</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/courses/1782480830829-bhagavatam.jpg</image:loc>
-      <image:title>Srimad-Bhagavatam Study Circle</image:title>
-      <image:caption>A slow, careful reading of the First Canto with discussion each week.</image:caption>
-    </image:image>
-  </url>
-  <url>
     <loc>https://iskconselfexcellence.online/journeys/5-day-sacred-journey-to-vrindavana</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
     <image:image>
@@ -205,137 +139,5 @@
       <image:title>5-Day Sacred Journey to Vrindavana</image:title>
       <image:caption>ISKCON Juhu → Vrindavana → ISKCON Juhu</image:caption>
     </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/blogs/why-students-need-spiritual-anchoring</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/about-sections/1783225751333-srila-prabhupada-103.jpg</image:loc>
-      <image:title>Why Students Need Spiritual Anchoring</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/blogs/five-lessons-from-the-bhagavad-gita</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/courses/1782480668022-bhagavad-gita-as-it-is-1.jpg</image:loc>
-      <image:title>Five Lessons from the Bhagavad-gita</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/blogs/the-power-of-satsang</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/about-sections/1783226348536-ssrrlv.jpg</image:loc>
-      <image:title>The Power of Satsang</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/blogs/starting-a-japa-practice-that-lasts</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/courses/1783106399937-isckon-disicple.jpg</image:loc>
-      <image:title>Starting a Japa Practice That Lasts</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/blogs/what-a-pilgrimage-actually-involves</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/trips/pilgrimage-hero.webp</image:loc>
-      <image:title>What a Pilgrimage Actually Involves</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/blogs/reading-the-bhagavatam-slowly</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/courses/1782480830829-bhagavatam.jpg</image:loc>
-      <image:title>Reading the Bhagavatam Slowly</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/video-blogs/srimad-bhagavatam-class-11611</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/video-blogs/never-give-up</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/video-blogs/playing-for-the-highest-goal</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/video-blogs/inviting-krishna-into-our-hearts</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/video-blogs/the-meaning-behind-krishnas-appearance</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/visionaries/hg-akshobhya-das</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.75</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/visionaries/akshobhya-das.png</image:loc>
-      <image:title>HG Akshobhya Das</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/visionaries/hg-hayagriva-charan-das</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.75</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/visionaries/hayagriva-charan-das-portrait.webp</image:loc>
-      <image:title>HG Hayagriva Charan Das</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/visionaries/adbhuta-hari-prabhu</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.75</priority>
-    <image:image>
-      <image:loc>https://iskconselfexcellence.online/uploads/visionaries/adbhuta-hari-prabhu.webp</image:loc>
-      <image:title>Adbhuta Hari Prabhu</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/privacy-policy</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://iskconselfexcellence.online/terms-and-conditions</loc>
-    <lastmod>2026-10-26</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
   </url>
 </urlset>

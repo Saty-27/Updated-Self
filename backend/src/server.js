@@ -83,6 +83,8 @@ import {
   writeSitemapToDisk
 } from "./sitemap.js";
 import { purgePrettyVisionData } from "./clean-prettyvision.js";
+import { assertSecureRuntime, createCorsOptions, JWT_SECRET, OTP_SECRET } from "./securityConfig.js";
+import { attachOutreachRoutes } from "./outreachRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -261,8 +263,9 @@ const slugify = (value = "") =>
     .replace(/^-+|-+$/g, "");
 
 const learnerRoles = ["student", "devotee", "user", "teacher", "main_admin"];
+const publicRegistrationRoles = ["student", "user"];
 const adminRoles = ["main_admin", "teacher"];
-const otpSecret = process.env.OTP_SECRET || process.env.JWT_SECRET || "development_secret";
+const otpSecret = OTP_SECRET;
 const hashOtp = (otp) => crypto.createHmac("sha256", otpSecret).update(String(otp)).digest("hex");
 const randomOtp = () => String(crypto.randomInt(100000, 1000000));
 const strongPassword = (password = "") => password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
@@ -330,13 +333,19 @@ const ROLE_LEVEL = {
   manager: 60,
   editor: 40,
   viewer: 20,
+  outreach_coordinator: 30,
+  attendance_operator: 25,
   teacher: 10,
   student: 0,
   devotee: 0,
   user: 0
 };
 
-const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer"];
+const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer", "outreach_coordinator", "attendance_operator"];
+const SPECIALIZED_ACCESS = {
+  outreach_coordinator: [{ section: "outreach", view: true, create: true, edit: true, canDelete: false }],
+  attendance_operator: [{ section: "outreach", view: true, create: true, edit: true, canDelete: false }]
+};
 const isStaff = (user) => STAFF_ROLES.includes(user?.role);
 const roleLevel = (user) => ROLE_LEVEL[user?.role] ?? 0;
 const isFullAdmin = (user) => Boolean(user && (user.role === "main_admin" || user.role === "admin"));
@@ -351,7 +360,7 @@ const ADMIN_SECTIONS = [
   "subscribers", "contact-messages", "comments", "chat",
   "footer", "site-settings", "traffic", "reports", "assets",
   "books", "book-orders", "book-payment-settings",
-  "testimonials", "notifications"
+  "testimonials", "notifications", "outreach"
 ];
 
 /* Canonical Section Aliases mapping API resources and routes to section keys */
@@ -405,7 +414,8 @@ const SECTION_ALIASES = {
   "exam-assignments": "exams",
   "exam-papers": "exams",
   "exam-questions": "exams",
-  "exam-question-banks": "exams"
+  "exam-question-banks": "exams",
+  outreach: "outreach"
 };
 
 const sectionFor = (resource = "") => {
@@ -509,7 +519,7 @@ const computeUserPermissions = (user) => {
 };
 
 const tokenFor = (user) =>
-  jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || "development_secret", {
+  jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d"
   });
 
@@ -538,7 +548,7 @@ const protect = asyncHandler(async (req, res, next) => {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.split(" ")[1] : null;
   if (!token) return res.status(401).json({ success: false, message: "Authentication token missing" });
-  const decoded = jwt.verify(token, process.env.JWT_SECRET || "development_secret");
+  const decoded = jwt.verify(token, JWT_SECRET);
   const user = await User.findById(decoded.id).select("-password");
   if (!user || user.status === "blocked" || user.status === "suspended") {
     return res.status(401).json({ success: false, message: "Your account has been blocked or suspended. Please contact admin support." });
@@ -554,7 +564,7 @@ const optionalUser = asyncHandler(async (req, res, next) => {
   const token = header.startsWith("Bearer ") ? header.split(" ")[1] : null;
   if (!token) return next();
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "development_secret");
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.id).select("-password");
     if (user && (user.status === "active" || ["main_admin", "teacher"].includes(user.role)) && isVerifiedForLogin(user)) req.user = user;
   } catch {
@@ -586,21 +596,9 @@ const requirePermission = (permission) => (req, res, next) => {
   return res.status(403).json({ success: false, message: `Missing permission: ${permission}` });
 };
 
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173,http://127.0.0.1:5173").split(",").map((item) => item.trim());
+assertSecureRuntime();
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-      const isLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
-      if (isLocal || !isLocal) {
-        return cb(null, true);
-      }
-      cb(new Error("Not allowed by CORS"));
-    },
-    credentials: true
-  })
-);
+app.use(cors(createCorsOptions()));
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
@@ -836,7 +834,7 @@ app.post(
   asyncHandler(async (req, res) => {
     let { name, email, phone, mobile, password, confirmPassword, role = "student" } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, message: "Name and email are required" });
-    const safeRole = learnerRoles.includes(role) ? role : "student";
+    const safeRole = publicRegistrationRoles.includes(role) ? role : "student";
     const isStaffRole = ["main_admin", "admin", "manager", "editor", "viewer", "teacher"].includes(safeRole);
 
     if (isStaffRole || password) {
@@ -3508,6 +3506,7 @@ const recordActivity = async (req, payload) => {
 app.use("/api", booksRouter);
 attachProtectedBookRoutes(app, protect);
 attachAdminBookRoutes(app, adminOnly);
+attachOutreachRoutes(app, { protect, canAccessSection, recordActivity });
 
 /* ============================================================
    ADMIN TESTIMONIAL MANAGEMENT ROUTES
@@ -6256,6 +6255,7 @@ app.post("/api/admin/staff", protect, staffGate, asyncHandler(async (req, res) =
   const staffStatus = status === "blocked" ? "blocked" : "active";
 
   let accessList = Array.isArray(sectionAccess) ? sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section)) : [];
+  if (SPECIALIZED_ACCESS[role]) accessList = SPECIALIZED_ACCESS[role];
   if (role === "admin" && accessList.length === 0) {
     accessList = ADMIN_SECTIONS.map((sec) => ({
       section: sec,
@@ -6344,6 +6344,7 @@ app.put("/api/admin/staff/:id", protect, staffGate, asyncHandler(async (req, res
       return res.status(403).json({ success: false, message: "You cannot grant a role at or above your own." });
     }
     target.role = req.body.role;
+    if (SPECIALIZED_ACCESS[target.role]) target.sectionAccess = SPECIALIZED_ACCESS[target.role];
   }
 
   if (req.body.status && req.body.status !== target.status) {
@@ -6360,6 +6361,7 @@ app.put("/api/admin/staff/:id", protect, staffGate, asyncHandler(async (req, res
 
   if (Array.isArray(req.body.sectionAccess)) {
     let nextAccess = req.body.sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section));
+    if (SPECIALIZED_ACCESS[target.role]) nextAccess = SPECIALIZED_ACCESS[target.role];
     if (target.role === "admin" && nextAccess.length === 0) {
       nextAccess = ADMIN_SECTIONS.map((sec) => ({
         section: sec,
@@ -6512,9 +6514,11 @@ app.put("/api/admin/staff/:id/access", protect, staffGate, asyncHandler(async (r
       return res.status(403).json({ success: false, message: "You cannot grant a role at or above your own." });
     }
     target.role = req.body.role;
+    if (SPECIALIZED_ACCESS[target.role]) target.sectionAccess = SPECIALIZED_ACCESS[target.role];
   }
   if (Array.isArray(req.body.sectionAccess)) {
     let nextAccess = req.body.sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section));
+    if (SPECIALIZED_ACCESS[target.role]) nextAccess = SPECIALIZED_ACCESS[target.role];
     if (target.role === "admin" && nextAccess.length === 0) {
       nextAccess = ADMIN_SECTIONS.map((sec) => ({
         section: sec,
@@ -7091,7 +7095,9 @@ app.use((error, req, res, next) => res.status(error.statusCode || 500).json({ su
 
 const runMigration = async () => {
   try {
-    await purgePrettyVisionData().catch((err) => console.warn("PrettyVision purge note:", err.message));
+    if (process.env.RUN_LEGACY_DATA_CLEANUP === "true") {
+      await purgePrettyVisionData().catch((err) => console.warn("PrettyVision purge note:", err.message));
+    }
 
     const lessons = await Lesson.find({});
     for (const lesson of lessons) {

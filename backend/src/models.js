@@ -60,7 +60,7 @@ const userSchema = new Schema(
     password: {
       type: String,
       required: function () {
-        return !this.googleId && ["main_admin", "admin", "manager", "editor", "viewer", "teacher"].includes(this.role);
+        return !this.googleId && ["main_admin", "admin", "manager", "editor", "viewer", "outreach_coordinator", "attendance_operator", "teacher"].includes(this.role);
       },
       minlength: 6,
       select: false
@@ -72,7 +72,7 @@ const userSchema = new Schema(
        is never restricted. Existing values are untouched. */
     role: {
       type: String,
-      enum: ["main_admin", "admin", "manager", "editor", "viewer", "teacher", "student", "devotee", "user"],
+      enum: ["main_admin", "admin", "manager", "editor", "viewer", "outreach_coordinator", "attendance_operator", "teacher", "student", "devotee", "user"],
       default: "student",
       index: true
     },

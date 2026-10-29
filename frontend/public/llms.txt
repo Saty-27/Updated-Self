@@ -15,12 +15,6 @@ Sitemap: https://iskconselfexcellence.online/sitemap.xml
 - [Video Lectures](https://iskconselfexcellence.online/video-blogs): Practical life guidance and scripture discourses.
 
 ## Active Courses
-- [Bhagavad-gita Foundations](https://iskconselfexcellence.online/courses/bhagavad-gita-foundations): The Gita in eighteen sessions, read as a practical manual rather than a historical text.
-- [Srimad-Bhagavatam Study Circle](https://iskconselfexcellence.online/courses/srimad-bhagavatam-study-circle): A slow, careful reading of the First Canto with discussion each week.
-- [The Guru-Disciple Relationship](https://iskconselfexcellence.online/courses/the-guru-disciple-relationship): What guidance means in practice, and how the tradition understands it.
-- [Japa and Daily Sadhana](https://iskconselfexcellence.online/courses/japa-and-daily-sadhana): Building a chanting practice that survives a working week.
-- [Self-Excellence for Students](https://iskconselfexcellence.online/courses/self-excellence-for-students): Study habits, focus and character, drawn from Vedic principles.
-- [Vaishnava Etiquette and Culture](https://iskconselfexcellence.online/courses/vaishnava-etiquette-and-culture): How devotees relate to one another, and why it matters.
 - [Brahmacharya Classes](https://iskconselfexcellence.online/courses/brahmacharya-classes): A foundational youth course on fearlessness, overcoming material desires, and spiritual discipline in Brahmacharya by HG Adbhuta Hari Prabhu.
 - [Bhagavad Gita](https://iskconselfexcellence.online/courses/bhagavad-gita): A transformative Thursday study series on the verses and philosophy of Srimad Bhagavad Gita by HG Adbhuta Hari Prabhuji.
 - [How To Improve Your Japa?](https://iskconselfexcellence.online/courses/how-to-improve-your-japa): Practical techniques and spiritual focus to overcome distractions and deepen your daily chanting meditation by HG Hayagriva Charan Das.
@@ -33,9 +27,3 @@ Sitemap: https://iskconselfexcellence.online/sitemap.xml
 ## Authentic Books & Publications
 
 ## Recent Wisdom Blogs
-- [Why Students Need Spiritual Anchoring](https://iskconselfexcellence.online/blogs/why-students-need-spiritual-anchoring): Why Students Need Spiritual Anchoring
-- [Five Lessons from the Bhagavad-gita](https://iskconselfexcellence.online/blogs/five-lessons-from-the-bhagavad-gita): Five Lessons from the Bhagavad-gita
-- [The Power of Satsang](https://iskconselfexcellence.online/blogs/the-power-of-satsang): The Power of Satsang
-- [Starting a Japa Practice That Lasts](https://iskconselfexcellence.online/blogs/starting-a-japa-practice-that-lasts): Starting a Japa Practice That Lasts
-- [What a Pilgrimage Actually Involves](https://iskconselfexcellence.online/blogs/what-a-pilgrimage-actually-involves): What a Pilgrimage Actually Involves
-- [Reading the Bhagavatam Slowly](https://iskconselfexcellence.online/blogs/reading-the-bhagavatam-slowly): Reading the Bhagavatam Slowly
