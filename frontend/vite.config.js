@@ -14,7 +14,6 @@ export default defineConfig({
           "vendor-react": ["react", "react-dom", "react-router-dom"],
           "vendor-ui": ["lucide-react"],
           "vendor-charts": ["recharts"],
-          "vendor-quill": ["react-quill"],
           "vendor-socket": ["socket.io-client"]
         }
       }

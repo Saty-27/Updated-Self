@@ -80,6 +80,7 @@ import { useEffect } from "react";
 import { apiFetch } from "./api";
 import { StudentTestimonialsPage } from "./studentTestimonials";
 import { AdminTestimonialsPage } from "./adminTestimonials";
+import OutreachPage from "./outreach";
 
 const PageDisabledGuard = ({ sectionKey, pageName, children }) => {
   const { isPageEnabled } = useHomepageSections();
@@ -105,7 +106,7 @@ const adminRoutes = [
 
 /* Staff roles that may open the admin panel at all. What they can
    actually see inside is decided per section by sectionAccess. */
-export const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer"];
+export const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer", "outreach_coordinator", "attendance_operator"];
 const isStaff = (user) => STAFF_ROLES.includes(user?.role);
 
 const LoadingScreen = () => <div className="grid min-h-screen place-items-center text-sm font-semibold">Loading...</div>;
@@ -250,6 +251,7 @@ const App = () => {
         <Route path="/exam/attempt/:attemptId" element={<StudentExamTakePage />} />
         <Route path="/exam/result/:attemptId" element={<StudentExamResultPage />} />
       </Route>
+      <Route path="/my-follow-ups" element={<ProtectedRoute roles={["main_admin", "admin", "manager", "editor", "viewer", "teacher", "devotee"]}><OutreachPage volunteerMode /></ProtectedRoute>} />
 
       <Route path="/teacher" element={<TeacherPanelGate />}>
         <Route index element={<Navigate to="dashboard" replace />} />
@@ -265,6 +267,7 @@ const App = () => {
       <Route path="/admin" element={<AdminPanelGate />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="outreach" element={<OutreachPage />} />
         <Route path="banners" element={<AdminBannersPage />} />
         <Route path="courses" element={<AdminCoursesPage />} />
         <Route path="courses/:courseId/lessons" element={<AdminCourseLessonsPage />} />
