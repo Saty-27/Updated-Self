@@ -7,16 +7,6 @@ export default defineConfig({
     port: 5173
   },
   build: {
-    chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-ui": ["lucide-react"],
-          "vendor-charts": ["recharts"],
-          "vendor-socket": ["socket.io-client"]
-        }
-      }
-    }
+    chunkSizeWarningLimit: 1000
   }
 });

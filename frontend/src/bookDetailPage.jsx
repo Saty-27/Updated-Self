@@ -16,6 +16,7 @@ import { apiFetch, assetUrl } from "./api";
 import { SEO } from "./components";
 import { DistributeModal } from "./distributeModal";
 import { BuyModal } from "./buyDrawer";
+import { sanitizedHtml } from "./shared/sanitizeHtml";
 
 const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
@@ -244,7 +245,7 @@ export const BookDetailPage = () => {
                 <p className="text-xs font-black uppercase tracking-wider text-muted">About This Sacred Literature</p>
                 <div
                   className="prose prose-sm max-w-none text-muted leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: book.fullDescription }}
+                  dangerouslySetInnerHTML={sanitizedHtml(book.fullDescription)}
                 />
               </div>
             )}

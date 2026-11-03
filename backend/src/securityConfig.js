@@ -37,3 +37,12 @@ export const createCorsOptions = () => {
     }
   };
 };
+
+export const createSocketCorsOptions = () => {
+  const httpCors = createCorsOptions();
+  return {
+    origin: httpCors.origin,
+    credentials: true,
+    methods: ["GET", "POST"]
+  };
+};

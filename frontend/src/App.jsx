@@ -1,72 +1,8 @@
 import { Navigate, Routes, Route, useLocation } from "react-router-dom";
-import {
-  AboutPage,
-  AdminBannersPage,
-  AdminChatPage,
-  AdminCommentsPage,
-  AdminContactPage,
-  AdminCourseLessonsPage,
-  AdminLessonContentPage,
-  AdminQuestionBankPage,
-  AdminLessonAnalyticsPage,
-  AdminCoursesPage,
-  AdminDashboard,
-  AdminResetRequestsPage,
-  AdminRolesPage,
-  AdminRoutePage,
-  AdminSettingsPage,
-  AdminTrafficPage,
-  AdminUsersPage,
-  AuthPage,
-  BlogDetailPage,
-  BlogListPage,
-  ContactPage,
-  CourseDetailPage,
-  CoursesPage,
-  GalleryPage,
-  ForgotPasswordPage,
-  HomePage,
-  LearnPage,
-  LegalPage,
-  VisionaryDetailPage,
-  VisionariesPage,
-  ReportsPage,
-  RequestPasswordResetPage,
-  SitemapPage,
-  StudentCoursesPage,
-  StudentBookingsPage,
-  StudentDashboard,
-  StudentNotesPage,
-  TeacherBlogsPage,
-  TeacherCoursesPage,
-  TeacherDashboard,
-  TeacherCommentsPage,
-  TeacherChatPage,
-  TeacherStudentProgressPage,
-  AdminTeachersPage,
-  VerifyOtpPage,
-  NotificationsPage,
-  AdminCourseRequestsPage,
-  AdminPilgrimageBookingsPage,
-  AdminExamDashboardPage,
-  AdminExamBanksPage,
-  AdminExamQuestionsPage,
-  AdminExamsPage,
-  AdminExamAssignmentsPage,
-  AdminExamResultsPage,
-  StudentExamsPage,
-  StudentExamTakePage,
-  StudentExamResultPage,
-  AdminAssetsPage
-} from "./pages";
+import { Suspense, useEffect } from "react";
 import { BrandLogo, DashboardLayout, ProtectedRoute, PublicLayout, PageUnavailable } from "./components";
 import { TripsPage } from "./trips";
 import { ClassesRoute, ClassDetailRoute } from "./classRoute";
-import { AdminTripsPage } from "./adminTrips";
-import { AdminJourneysPage } from "./adminJourneys";
-import { AdminClassesPage } from "./adminClasses";
-import { AdminAccessPage } from "./adminAccess";
-import { StudentTripsPage, StudentTripDetailPage } from "./myTrips";
 import { TripDetailRoute } from "./tripRoute";
 import { VideosPage } from "./videosPage";
 import { BooksPage } from "./booksPage";
@@ -76,11 +12,29 @@ import { AdminBooksPage, AdminBookOrdersPage, AdminBookPaymentSettingsPage } fro
 import { AdminHomeSectionsPage } from "./adminHomeSections";
 import { useHomepageSections } from "./useHomepageSections";
 import { useAuth } from "./AuthContext";
-import { useEffect } from "react";
 import { apiFetch } from "./api";
 import { StudentTestimonialsPage } from "./studentTestimonials";
 import { AdminTestimonialsPage } from "./adminTestimonials";
-import OutreachPage from "./outreach";
+import { applyTrustedHeadSettings } from "./core/security/headSettings";
+import { isStaffRole, STAFF_ROLES } from "./core/auth/access";
+import { RouteLoading } from "./shared/ui/RouteLoading";
+import {
+  AdminAccessPage, AdminClassesPage, AdminJourneysPage, AdminTripsPage, lazyPages,
+  OutreachPage, StudentTripDetailPage, StudentTripsPage
+} from "./app/routes/lazyRoutes";
+const {
+  AboutPage, AdminBannersPage, AdminChatPage, AdminCommentsPage, AdminContactPage, AdminCourseLessonsPage,
+  AdminLessonContentPage, AdminQuestionBankPage, AdminLessonAnalyticsPage, AdminCoursesPage, AdminDashboard,
+  AdminResetRequestsPage, AdminRolesPage, AdminRoutePage, AdminSettingsPage, AdminTrafficPage, AdminUsersPage,
+  AuthPage, BlogDetailPage, BlogListPage, ContactPage, CourseDetailPage, CoursesPage, GalleryPage, ForgotPasswordPage,
+  HomePage, LearnPage, LegalPage, VisionaryDetailPage, VisionariesPage, ReportsPage, RequestPasswordResetPage,
+  SitemapPage, StudentCoursesPage, StudentBookingsPage, StudentDashboard, StudentNotesPage, TeacherBlogsPage,
+  TeacherCoursesPage, TeacherDashboard, TeacherCommentsPage, TeacherChatPage, TeacherStudentProgressPage,
+  AdminTeachersPage, VerifyOtpPage, NotificationsPage, AdminCourseRequestsPage, AdminPilgrimageBookingsPage,
+  AdminExamDashboardPage, AdminExamBanksPage, AdminExamQuestionsPage, AdminExamsPage, AdminExamAssignmentsPage,
+  AdminExamResultsPage, StudentExamsPage, StudentExamTakePage, StudentExamResultPage, AdminAssetsPage
+} = lazyPages;
+
 
 const PageDisabledGuard = ({ sectionKey, pageName, children }) => {
   const { isPageEnabled } = useHomepageSections();
@@ -106,10 +60,10 @@ const adminRoutes = [
 
 /* Staff roles that may open the admin panel at all. What they can
    actually see inside is decided per section by sectionAccess. */
-export const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer", "outreach_coordinator", "attendance_operator"];
-const isStaff = (user) => STAFF_ROLES.includes(user?.role);
+export { STAFF_ROLES };
+const isStaff = (user) => isStaffRole(user?.role);
 
-const LoadingScreen = () => <div className="grid min-h-screen place-items-center text-sm font-semibold">Loading...</div>;
+const LoadingScreen = RouteLoading;
 
 const PanelEntry = ({ type }) => {
   const { user, loading } = useAuth();
@@ -160,34 +114,7 @@ const App = () => {
     apiFetch("/site-settings")
       .then((data) => {
         const settings = data.settings || {};
-        const tags = [];
-        if (settings.googleSearchConsoleTag) {
-          tags.push(settings.googleSearchConsoleTag);
-        }
-        if (settings.customHeaderHtml) {
-          tags.push(settings.customHeaderHtml);
-        }
-
-        if (tags.length > 0) {
-          let container = document.getElementById("custom-header-scripts");
-          if (!container) {
-            container = document.createElement("div");
-            container.id = "custom-header-scripts";
-            container.style.display = "none";
-            document.head.appendChild(container);
-          }
-          container.innerHTML = tags.join("\n");
-
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(container.innerHTML, "text/html");
-          const scripts = doc.querySelectorAll("script");
-          scripts.forEach((s) => {
-            const newScript = document.createElement("script");
-            Array.from(s.attributes).forEach((attr) => newScript.setAttribute(attr.name, attr.value));
-            newScript.innerHTML = s.innerHTML;
-            document.head.appendChild(newScript);
-          });
-        }
+        applyTrustedHeadSettings(settings);
       })
       .catch(() => {});
   }, []);
@@ -195,6 +122,7 @@ const App = () => {
   return (
     <>
       <ScrollToTop />
+      <Suspense fallback={<LoadingScreen />}>
       <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<HomePage />} />
@@ -316,7 +244,8 @@ const App = () => {
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+      </Routes>
+      </Suspense>
     </>
   );
 };

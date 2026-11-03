@@ -55,9 +55,14 @@ test("assigned volunteers cannot read another volunteer's contact and three uncl
   const otherVolunteer = await makeUser("devotee", "two");
   const created = await request(app).post("/api/outreach/contacts").set("x-test-user", String(coordinator._id)).send({
     fullName: "Test Participant", primaryPhone: "9000000001", email: "participant@example.test",
-    occupation: "Student", registrationDate: "2026-10-29", registrationSource: "Campus desk", permissionToContact: true
+    occupation: "Student", registrationDate: "2026-10-29", registrationSource: "Campus desk", permissionToContact: true,
+    sequenceNumber: 9999, strikeCount: 3, followUpListStatus: "non_follow_up", archivedAt: "2026-01-01"
   }).expect(201);
   const contactId = created.body.item._id;
+  assert.notEqual(created.body.item.sequenceNumber, 9999);
+  assert.equal(created.body.item.strikeCount, 0);
+  assert.equal(created.body.item.followUpListStatus, "current");
+  assert.equal(created.body.item.archivedAt ?? null, null);
   await request(app).post(`/api/outreach/contacts/${contactId}/assign`).set("x-test-user", String(coordinator._id)).send({ volunteer: volunteer._id }).expect(201);
   await request(app).get(`/api/outreach/contacts/${contactId}`).set("x-test-user", String(otherVolunteer._id)).expect(403);
 

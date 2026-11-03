@@ -46,7 +46,6 @@ import {
   PasswordResetRequest,
   Preacher,
   Progress,
-  SiteSetting,
   Subscriber,
   Testimonial,
   TrafficLog,
@@ -83,8 +82,13 @@ import {
   writeSitemapToDisk
 } from "./sitemap.js";
 import { purgePrettyVisionData } from "./clean-prettyvision.js";
-import { assertSecureRuntime, createCorsOptions, JWT_SECRET, OTP_SECRET } from "./securityConfig.js";
+import { assertSecureRuntime, createCorsOptions, createSocketCorsOptions, JWT_SECRET, OTP_SECRET } from "./securityConfig.js";
 import { attachOutreachRoutes } from "./outreachRoutes.js";
+import { attachSiteSettingsRoutes } from "./siteSettingsRoutes.js";
+import {
+  ACTION_FOR_METHOD, ADMIN_SECTIONS, ROLE_LEVEL, SPECIALIZED_ACCESS, STAFF_ROLES,
+  canAccessSection, computeUserPermissions, isFullAdmin, isStaff, roleLevel, sectionFor
+} from "./core/auth/accessPolicy.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -103,10 +107,7 @@ const port = process.env.PORT || 5055;
 
 const server = http.createServer(app);
 const io = new SocketServer(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
-  }
+  cors: createSocketCorsOptions()
 });
 
 // Active socket connection registry: maps userId -> Set of socket.ids
@@ -127,8 +128,9 @@ io.on("connection", (socket) => {
   let currentUserId = null;
 
   socket.on("user_connected", async ({ userId }) => {
-    if (!userId) return;
-    currentUserId = userId.toString();
+    const authenticatedUserId = socket.data.authenticatedUserId;
+    if (!authenticatedUserId || (userId && String(userId) !== String(authenticatedUserId))) return;
+    currentUserId = String(authenticatedUserId);
     
     // Register socket
     if (!activeUsers.has(currentUserId)) {
@@ -261,6 +263,16 @@ const slugify = (value = "") =>
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+const safeSearchRegex = (value = "") => new RegExp(
+  String(value).slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+  "i"
+);
+const pick = (source, fields) => Object.fromEntries(fields.filter((field) => source?.[field] !== undefined).map((field) => [field, source[field]]));
+const pickModelFields = (Model, source, denied = []) => {
+  const blocked = new Set(["_id", "__v", "createdAt", "updatedAt", ...denied]);
+  const allowed = Object.keys(Model.schema.paths).filter((field) => !field.includes(".") && !blocked.has(field));
+  return pick(source, allowed);
+};
 
 const learnerRoles = ["student", "devotee", "user", "teacher", "main_admin"];
 const publicRegistrationRoles = ["student", "user"];
@@ -327,128 +339,6 @@ const canManageCourseArea = (user) => adminRoles.includes(user?.role);
    CENTRAL STAFF ROLES & PERMISSIONS SYSTEM
    ============================================================ */
 
-const ROLE_LEVEL = {
-  main_admin: 100,
-  admin: 80,
-  manager: 60,
-  editor: 40,
-  viewer: 20,
-  outreach_coordinator: 30,
-  attendance_operator: 25,
-  teacher: 10,
-  student: 0,
-  devotee: 0,
-  user: 0
-};
-
-const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer", "outreach_coordinator", "attendance_operator"];
-const SPECIALIZED_ACCESS = {
-  outreach_coordinator: [{ section: "outreach", view: true, create: true, edit: true, canDelete: false }],
-  attendance_operator: [{ section: "outreach", view: true, create: true, edit: true, canDelete: false }]
-};
-const isStaff = (user) => STAFF_ROLES.includes(user?.role);
-const roleLevel = (user) => ROLE_LEVEL[user?.role] ?? 0;
-const isFullAdmin = (user) => Boolean(user && (user.role === "main_admin" || user.role === "admin"));
-
-/* Every admin area the panel can grant, keyed the way the UI routes it. */
-const ADMIN_SECTIONS = [
-  "dashboard", "users", "roles", "activity-log", "sessions",
-  "banners", "home-sections", "about-sections", "pages",
-  "courses", "lessons", "course-requests", "exams",
-  "journeys", "trips", "trip-bookings", "booking-taxes", "upcoming-classes",
-  "visionaries", "teachers", "blogs", "video-blogs", "media",
-  "subscribers", "contact-messages", "comments", "chat",
-  "footer", "site-settings", "traffic", "reports", "assets",
-  "books", "book-orders", "book-payment-settings",
-  "testimonials", "notifications", "outreach"
-];
-
-/* Canonical Section Aliases mapping API resources and routes to section keys */
-const SECTION_ALIASES = {
-  journeys: "journeys",
-  pilgrimages: "trips",
-  trips: "trips",
-  "pilgrimage-bookings": "trip-bookings",
-  "trip-bookings": "trip-bookings",
-  "booking-taxes": "booking-taxes",
-  "upcoming-classes": "upcoming-classes",
-  "media/images": "media",
-  "media/videos": "media",
-  "gallery-images": "media",
-  "gallery-videos": "media",
-  preachers: "visionaries",
-  visionaries: "visionaries",
-  teachers: "teachers",
-  "video-intro": "home-sections",
-  "home-sections": "home-sections",
-  "about-sections": "about-sections",
-  "trips-overview": "trips",
-  "trip-stats": "trips",
-  "book-orders": "book-orders",
-  "book-payment-settings": "book-payment-settings",
-  books: "books",
-  "contact-settings": "contact-messages",
-  contact: "contact-messages",
-  "contact-messages": "contact-messages",
-  testimonials: "testimonials",
-  staff: "roles",
-  roles: "roles",
-  banners: "banners",
-  courses: "courses",
-  lessons: "lessons",
-  assets: "assets",
-  "course-requests": "course-requests",
-  "activity-log": "activity-log",
-  sessions: "sessions",
-  users: "users",
-  dashboard: "dashboard",
-  subscribers: "subscribers",
-  comments: "comments",
-  chat: "chat",
-  footer: "footer",
-  "site-settings": "site-settings",
-  traffic: "traffic",
-  reports: "reports",
-  notifications: "notifications",
-  exams: "exams",
-  "exam-assignments": "exams",
-  "exam-papers": "exams",
-  "exam-questions": "exams",
-  "exam-question-banks": "exams",
-  outreach: "outreach"
-};
-
-const sectionFor = (resource = "") => {
-  const head = String(resource).split("?")[0].replace(/^\/api\/admin\//, "").replace(/^\/api\//, "").replace(/^\//, "");
-  if (SECTION_ALIASES[head]) return SECTION_ALIASES[head];
-  const first = head.split("/")[0];
-  return SECTION_ALIASES[first] || first;
-};
-
-const ACTION_FOR_METHOD = { GET: "view", POST: "create", PUT: "edit", PATCH: "edit", DELETE: "canDelete" };
-
-const canAccessSection = (user, section, action = "view") => {
-  if (!user) return false;
-  if (!isStaff(user)) return false;
-  // Full Admin (main_admin and admin) has complete access to all sections and CRUD actions
-  if (isFullAdmin(user)) return true;
-
-  const normalizedSection = sectionFor(section);
-  const normalizedAction =
-    action === "delete" || action === "canDelete"
-      ? "canDelete"
-      : action === "edit" || action === "update"
-      ? "edit"
-      : action === "create"
-      ? "create"
-      : "view";
-
-  const grant = (user.sectionAccess || []).find((g) => g.section === normalizedSection);
-  if (!grant) return false;
-
-  if (normalizedAction === "view") return grant.view !== false;
-  return Boolean(grant[normalizedAction]);
-};
 
 const requireSectionPermission = (section, action = "view") => (req, res, next) => {
   if (!req.user) {
@@ -493,35 +383,51 @@ const staffGate = (req, res, next) => {
   return next();
 };
 
-const computeUserPermissions = (user) => {
-  if (!user || !isStaff(user)) return [];
-  if (isFullAdmin(user)) {
-    return ADMIN_SECTIONS.flatMap((sec) => [
-      `${sec}.view`,
-      `${sec}.read`,
-      `${sec}.create`,
-      `${sec}.edit`,
-      `${sec}.update`,
-      `${sec}.delete`,
-      `${sec}.canDelete`
-    ]);
-  }
-  const perms = [];
-  for (const grant of (user.sectionAccess || [])) {
-    if (!grant || !grant.section) continue;
-    const sec = grant.section;
-    if (grant.view !== false) perms.push(`${sec}.view`, `${sec}.read`);
-    if (grant.create) perms.push(`${sec}.create`);
-    if (grant.edit || grant.update) perms.push(`${sec}.edit`, `${sec}.update`);
-    if (grant.canDelete || grant.delete) perms.push(`${sec}.delete`, `${sec}.canDelete`);
-  }
-  return perms;
-};
-
-const tokenFor = (user) =>
-  jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, {
+const tokenFor = (user, sessionId) =>
+  jwt.sign({ id: user._id, role: user.role, tokenVersion: user.tokenVersion || 0, sessionId }, JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d"
   });
+
+const readCookie = (req, name) => String(req.headers.cookie || "")
+  .split(";")
+  .map((part) => part.trim().split("="))
+  .find(([key]) => key === name)?.slice(1).join("=");
+const tokenFromRequest = (req) => {
+  const header = req.headers.authorization || "";
+  return header.startsWith("Bearer ") ? header.slice(7) : decodeURIComponent(readCookie(req, "se_session") || "");
+};
+const setAuthCookie = (req, res, token) => {
+  const secure = process.env.NODE_ENV === "production" || req.secure || req.headers["x-forwarded-proto"] === "https";
+  res.cookie("se_session", token, {
+    httpOnly: true,
+    secure,
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/"
+  });
+};
+const clearAuthCookie = (req, res) => res.clearCookie("se_session", {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production" || req.secure || req.headers["x-forwarded-proto"] === "https",
+  sameSite: "lax",
+  path: "/"
+});
+
+io.use(async (socket, next) => {
+  try {
+    const cookieHeader = socket.handshake.headers.cookie || "";
+    const raw = cookieHeader.split(";").map((part) => part.trim().split("=")).find(([key]) => key === "se_session")?.slice(1).join("=");
+    if (!raw) return next(new Error("Authentication required"));
+    const decoded = jwt.verify(decodeURIComponent(raw), JWT_SECRET);
+    const user = await User.findById(decoded.id).select("status emailVerified role +tokenVersion");
+    if (!user || user.status !== "active" || (user.tokenVersion || 0) !== (decoded.tokenVersion || 0) || !isVerifiedForLogin(user)) return next(new Error("Invalid session"));
+    if (decoded.sessionId && !(await LoginSession.exists({ _id: decoded.sessionId, user: user._id, active: true }))) return next(new Error("Revoked session"));
+    socket.data.authenticatedUserId = String(user._id);
+    next();
+  } catch {
+    next(new Error("Invalid session"));
+  }
+});
 
 const userPayload = (user) => ({
   _id: user._id,
@@ -545,13 +451,19 @@ const userPayload = (user) => ({
 });
 
 const protect = asyncHandler(async (req, res, next) => {
-  const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.split(" ")[1] : null;
+  const token = tokenFromRequest(req);
   if (!token) return res.status(401).json({ success: false, message: "Authentication token missing" });
   const decoded = jwt.verify(token, JWT_SECRET);
-  const user = await User.findById(decoded.id).select("-password");
+  const user = await User.findById(decoded.id).select("-password +tokenVersion");
   if (!user || user.status === "blocked" || user.status === "suspended") {
     return res.status(401).json({ success: false, message: "Your account has been blocked or suspended. Please contact admin support." });
+  }
+  if ((user.tokenVersion || 0) !== (decoded.tokenVersion || 0)) {
+    return res.status(401).json({ success: false, message: "Session has expired. Please sign in again." });
+  }
+  if (decoded.sessionId) {
+    const activeSession = await LoginSession.exists({ _id: decoded.sessionId, user: user._id, active: true });
+    if (!activeSession) return res.status(401).json({ success: false, message: "Session has been revoked." });
   }
   if (user.status !== "active" && !["main_admin", "teacher"].includes(user.role)) return res.status(401).json({ success: false, message: "User is inactive or missing" });
   if (!isVerifiedForLogin(user)) return res.status(403).json({ success: false, message: "Please verify your email OTP before continuing" });
@@ -560,13 +472,14 @@ const protect = asyncHandler(async (req, res, next) => {
 });
 
 const optionalUser = asyncHandler(async (req, res, next) => {
-  const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.split(" ")[1] : null;
+  const token = tokenFromRequest(req);
   if (!token) return next();
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.id).select("-password");
-    if (user && (user.status === "active" || ["main_admin", "teacher"].includes(user.role)) && isVerifiedForLogin(user)) req.user = user;
+    const user = await User.findById(decoded.id).select("-password +tokenVersion");
+    const versionMatches = user && (user.tokenVersion || 0) === (decoded.tokenVersion || 0);
+    const sessionActive = !decoded.sessionId || await LoginSession.exists({ _id: decoded.sessionId, user: decoded.id, active: true });
+    if (versionMatches && sessionActive && (user.status === "active" || ["main_admin", "teacher"].includes(user.role)) && isVerifiedForLogin(user)) req.user = user;
   } catch {
     req.user = null;
   }
@@ -689,7 +602,26 @@ const upload = multer({
     cb(null, true);
   }
 });
-app.use("/uploads", express.static(uploadRoot));
+/* Only explicitly public CMS media is anonymously readable. Documents,
+   payment evidence, enrollment files and chat attachments pass through
+   the authenticated fallback below. */
+const publicUploadFolders = ["banners", "courses", "books", "classes", "preachers", "video-blogs", "gallery", "journeys", "trips"];
+for (const folder of publicUploadFolders) {
+  app.use(`/uploads/${folder}`, express.static(path.join(uploadRoot, folder), { fallthrough: false, maxAge: "7d", immutable: true }));
+}
+app.get("/uploads/*", protect, asyncHandler(async (req, res) => {
+  const relative = String(req.params[0] || "").replace(/\\/g, "/");
+  const normalized = path.posix.normalize(relative).replace(/^(\.\.\/)+/, "");
+  if (!normalized || normalized !== relative || path.isAbsolute(normalized)) return res.status(400).json({ success: false, message: "Invalid file path" });
+  const url = `/uploads/${normalized}`;
+  const file = await FileUpload.findOne({ url }).lean();
+  if (!file) return res.status(404).json({ success: false, message: "File not found" });
+  const staff = ["main_admin", "admin", "manager", "teacher"].includes(req.user.role);
+  if (!staff && String(file.user) !== String(req.user._id)) return res.status(403).json({ success: false, message: "You do not have access to this file" });
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.sendFile(path.resolve(uploadRoot, normalized), { root: uploadRoot });
+}));
 
 app.use((req, res, next) => {
   if (req.method === "GET" && !req.originalUrl.startsWith("/api/admin") && !req.originalUrl.startsWith("/uploads")) {
@@ -815,16 +747,9 @@ const getOrCreateChatRoom = async (course) =>
   );
 
 app.get("/api/health", (req, res) => {
-  const mem = process.memoryUsage();
   res.json({
     status: "ok",
-    uptimeSeconds: Math.floor(process.uptime()),
-    memoryMb: {
-      rss: Math.round(mem.rss / 1024 / 1024),
-      heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
-      heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
-    },
-    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+    database: mongoose.connection.readyState === 1 ? "connected" : "unavailable"
   });
 });
 
@@ -837,18 +762,16 @@ app.post(
     const safeRole = publicRegistrationRoles.includes(role) ? role : "student";
     const isStaffRole = ["main_admin", "admin", "manager", "editor", "viewer", "teacher"].includes(safeRole);
 
+    if (!password) {
+      return res.status(400).json({ success: false, message: "Password is required" });
+    }
     if (isStaffRole || password) {
-      if (!password) {
-        return res.status(400).json({ success: false, message: "Password is required" });
-      }
       if (confirmPassword && password !== confirmPassword) {
         return res.status(400).json({ success: false, message: "Passwords do not match" });
       }
       if (!strongPassword(password)) {
         return res.status(400).json({ success: false, message: "Password must be at least 8 characters and include letters and numbers" });
       }
-    } else {
-      password = `Devotee@${Math.floor(100000 + Math.random() * 900000)}`;
     }
     const normalizedEmail = email.toLowerCase().trim();
     const existing = await User.findOne({ email: normalizedEmail }).select("+password");
@@ -860,17 +783,17 @@ app.post(
       mobile: mobile || phone,
       password,
       role: safeRole,
-      status: "active",
-      emailVerified: true
+      status: "pending",
+      emailVerified: false
     });
     await user.save();
-    await createNotification({ audience: "admin", type: "user_registered", title: "New user registered", message: `${user.name} registered and account is active.`, link: "/admin/users" });
+    const devOtp = await issueOtp({ user, email: user.email, purpose: "register" });
+    await createNotification({ audience: "admin", type: "user_registered", title: "New user registered", message: `${user.name} registered and is awaiting email verification.`, link: "/admin/users" });
     res.status(201).json({
       success: true,
-      requiresVerification: false,
-      token: tokenFor(user),
-      user: userPayload(user),
-      message: "Registration successful"
+      requiresVerification: true,
+      devOtp: process.env.NODE_ENV === "production" ? undefined : devOtp,
+      message: "Registration successful. Verify the OTP sent to your email."
     });
   })
 );
@@ -881,14 +804,16 @@ app.post(
     const { email, otp, purpose = "register" } = req.body;
     if (!email || !otp) return res.status(400).json({ success: false, message: "Email and OTP are required" });
     await verifyOtpRecord({ email, purpose, otp, consume: true });
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select("+tokenVersion");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
     user.status = "active";
     user.emailVerified = true;
     user.otpVerifiedAt = new Date();
     user.lastActiveAt = new Date();
     await user.save();
-    res.json({ success: true, token: tokenFor(user), user: userPayload(user), message: "Email verified successfully" });
+    const token = tokenFor(user);
+    setAuthCookie(req, res, token);
+    res.json({ success: true, user: userPayload(user), message: "Email verified successfully" });
   })
 );
 
@@ -912,45 +837,19 @@ app.post(
     if (!email) {
       return res.status(400).json({ success: false, message: "Email is required" });
     }
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        notFound: true,
-        message: "Email is not registered. Please create an account."
-      });
-    }
+    const user = await User.findOne({ email }).select("+password +tokenVersion");
+    if (!user) return res.status(401).json({ success: false, message: "Invalid email or password" });
 
     const isAdminOrTeacher = ["main_admin", "admin", "manager", "editor", "viewer", "teacher"].includes(user.role);
 
-    if (isAdminOrTeacher) {
-      if (!req.body.password) {
-        return res.status(400).json({
-          success: false,
-          message: "Password is required for admin and teacher login. Please use the Admin Login."
-        });
-      }
-      const match = await user.matchPassword(req.body.password);
-      if (!match) {
-        return res.status(401).json({ success: false, message: "Invalid email or password" });
-      }
-    } else {
-      // For student / devotee / user accounts:
-      // Allow passwordless email login. If a password is provided and stored, verify it.
-      if (req.body.password && user.password) {
-        const match = await user.matchPassword(req.body.password);
-        if (!match) {
-          return res.status(401).json({ success: false, message: "Invalid password" });
-        }
-      }
-    }
+    if (!req.body.password) return res.status(400).json({ success: false, message: "Password is required" });
+    const match = await user.matchPassword(req.body.password);
+    if (!match) return res.status(401).json({ success: false, message: "Invalid email or password" });
 
     if (user.status === "blocked") return res.status(403).json({ success: false, message: "Account is blocked. Please contact admin." });
 
-    if (user.status !== "active" && !isAdminOrTeacher) {
-      user.status = "active";
-      user.emailVerified = true;
-    }
+    if (!isAdminOrTeacher && !user.emailVerified) return res.status(403).json({ success: false, message: "Please verify your email OTP before continuing" });
+    if (user.status !== "active" && !isAdminOrTeacher) return res.status(403).json({ success: false, message: "Account is not active" });
     user.lastActiveAt = new Date();
     await user.save();
 
@@ -974,7 +873,9 @@ app.post(
       });
     }
 
-    res.json({ success: true, token: tokenFor(user), user: userPayload(user) });
+    const token = tokenFor(user, session?._id);
+    setAuthCookie(req, res, token);
+    res.json({ success: true, user: userPayload(user) });
   })
 );
 
@@ -1009,10 +910,11 @@ app.post(
     if (confirmPassword && password !== confirmPassword) return res.status(400).json({ success: false, message: "Passwords do not match" });
     if (!strongPassword(password)) return res.status(400).json({ success: false, message: "Password must be at least 8 characters and include letters and numbers" });
     await verifyOtpRecord({ email, purpose: "forgot_password", otp, consume: true });
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select("+password");
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select("+password +tokenVersion");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
     user.password = password;
     user.mustChangePassword = false;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
     await createNotification({ user: user._id, type: "password_updated", title: "Password updated", message: "Your password was updated successfully." });
     await sendEmail({ to: user.email, subject: "Password updated", text: "Your ISKCON Juhu Self-Excellence password was updated successfully." });
@@ -1040,10 +942,11 @@ app.put(
     if (!currentPassword || !newPassword) return res.status(400).json({ success: false, message: "Current and new password are required" });
     if (confirmPassword && newPassword !== confirmPassword) return res.status(400).json({ success: false, message: "Passwords do not match" });
     if (!strongPassword(newPassword)) return res.status(400).json({ success: false, message: "Password must be at least 8 characters and include letters and numbers" });
-    const user = await User.findById(req.user._id).select("+password");
+    const user = await User.findById(req.user._id).select("+password +tokenVersion");
     if (!(await user.matchPassword(currentPassword))) return res.status(401).json({ success: false, message: "Current password is incorrect" });
     user.password = newPassword;
     user.mustChangePassword = false;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
     res.json({ success: true, message: "Password changed successfully" });
   })
@@ -1099,7 +1002,7 @@ app.post(
 
     /* Match on the Google subject first, then fall back to the email so
        an existing password account is linked rather than duplicated. */
-    let user = await User.findOne({ $or: [{ googleId: payload.sub }, { email }] });
+    let user = await User.findOne({ $or: [{ googleId: payload.sub }, { email }] }).select("+tokenVersion");
     const isNew = !user;
 
     if (!user) {
@@ -1153,11 +1056,18 @@ app.post(
       });
     }
 
-    res.json({ success: true, isNew, token: tokenFor(user), user: userPayload(user) });
+    const token = tokenFor(user, session?._id);
+    setAuthCookie(req, res, token);
+    res.json({ success: true, isNew, user: userPayload(user) });
   })
 );
 
-app.post("/api/auth/logout", (req, res) => res.json({ success: true, message: "Logged out" }));
+app.post("/api/auth/logout", protect, asyncHandler(async (req, res) => {
+  await User.updateOne({ _id: req.user._id }, { $inc: { tokenVersion: 1 } });
+  await LoginSession.updateMany({ user: req.user._id, active: true }, { active: false, endedAt: new Date() });
+  clearAuthCookie(req, res);
+  res.json({ success: true, message: "Logged out" });
+}));
 app.put(
   "/api/auth/profile",
   protect,
@@ -1195,7 +1105,6 @@ app.post(
   })
 );
 
-app.get("/api/site-settings", asyncHandler(async (req, res) => res.json({ success: true, settings: await SiteSetting.findOne({ singletonKey: "site" }).lean() })));
 app.get("/api/footer", asyncHandler(async (req, res) => res.json({ success: true, footer: await FooterSetting.findOne({ singletonKey: "footer" }).lean() })));
 app.get("/api/contact-settings", asyncHandler(async (req, res) => {
   let settings = await ContactSetting.findOne({ singletonKey: "contact" }).lean();
@@ -1454,10 +1363,10 @@ app.get("/api/trips", asyncHandler(async (req, res) => {
   const filter = publishedTripFilter();
   if (req.query.homepage === "true") filter.showOnHomepage = true;
   if (req.query.featured === "true") filter.featured = true;
-  if (req.query.destination) filter.destination = new RegExp(req.query.destination, "i");
+  if (req.query.destination) filter.destination = safeSearchRegex(req.query.destination);
   if (req.query.tripType) filter.tripType = req.query.tripType;
   if (req.query.search) {
-    const regex = new RegExp(req.query.search, "i");
+    const regex = safeSearchRegex(req.query.search);
     filter.$or = [{ title: regex }, { destination: regex }, { shortDescription: regex }, { tripType: regex }];
   }
   if (req.query.minPrice || req.query.maxPrice) {
@@ -1599,7 +1508,7 @@ app.get("/api/journeys/featured", asyncHandler(async (req, res) => {
 app.get("/api/journeys/upcoming", asyncHandler(async (req, res) => {
   const filter = { status: "published", isActive: true };
   if (req.query.search) {
-    const rx = new RegExp(req.query.search, "i");
+    const rx = safeSearchRegex(req.query.search);
     filter.$or = [{ title: rx }, { routeText: rx }, { destination: rx }, { startingLocation: rx }];
   }
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 24, 1), 100);
@@ -1659,7 +1568,7 @@ app.get("/api/admin/journeys", protect, requireSectionPermission("journeys", "vi
   if (req.query.featured === "true") filter.isFeatured = true;
   if (req.query.active === "true") filter.isActive = true;
   if (req.query.search) {
-    const rx = new RegExp(req.query.search, "i");
+    const rx = safeSearchRegex(req.query.search);
     filter.$or = [{ title: rx }, { routeText: rx }, { destination: rx }, { startingLocation: rx }, { shortDescription: rx }];
   }
   const items = await Journey.find(filter).sort({ isFeatured: -1, sortOrder: 1, createdAt: -1 }).lean();
@@ -1675,7 +1584,7 @@ app.get("/api/admin/journeys/:id", protect, requireSectionPermission("journeys",
 
 // Admin: Create Journey
 app.post("/api/admin/journeys", protect, requireSectionPermission("journeys", "create"), asyncHandler(async (req, res) => {
-  const data = { ...req.body };
+  const data = pickModelFields(Journey, req.body);
   if (!data.title || !data.title.trim()) {
     return res.status(400).json({ success: false, message: "Journey title is required" });
   }
@@ -1695,7 +1604,7 @@ app.post("/api/admin/journeys", protect, requireSectionPermission("journeys", "c
 
 // Admin: Update Journey
 app.put("/api/admin/journeys/:id", protect, requireSectionPermission("journeys", "edit"), asyncHandler(async (req, res) => {
-  const data = { ...req.body };
+  const data = pickModelFields(Journey, req.body);
   if (data.isFeatured) {
     await Journey.updateMany({ _id: { $ne: req.params.id } }, { $set: { isFeatured: false } });
   }
@@ -2316,7 +2225,7 @@ const courseList = async (req, res, forceActive = false) => {
   if (req.query.level) filter.level = req.query.level;
   if (req.query.teacher) filter.teacher = req.query.teacher;
   if (req.query.search) {
-    const regex = new RegExp(req.query.search, "i");
+    const regex = safeSearchRegex(req.query.search);
     filter.$or = [{ title: regex }, { shortDescription: regex }, { description: regex }, { category: regex }];
   }
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
@@ -3142,8 +3051,8 @@ app.get(
     const query = { user: req.user._id, lesson: req.params.lessonId };
     if (req.query.q) {
       query.$or = [
-        { title: new RegExp(req.query.q, "i") },
-        { content: new RegExp(req.query.q, "i") }
+        { title: safeSearchRegex(req.query.q) },
+        { content: safeSearchRegex(req.query.q) }
       ];
     }
 
@@ -3312,7 +3221,7 @@ app.get("/api/blogs", asyncHandler((req, res) => {
   if (req.query.homepage === "true") filter.showOnHomepage = true;
   if (req.query.category) filter.category = req.query.category;
   if (req.query.search) {
-    const regex = new RegExp(req.query.search, "i");
+    const regex = safeSearchRegex(req.query.search);
     filter.$or = [{ title: regex }, { shortDescription: regex }, { category: regex }, { tags: regex }];
   }
   return list(req, res, Blog, filter, { populate: { path: "author", select: "name profileImage" }, sort: { featured: -1, createdAt: -1 } });
@@ -3328,7 +3237,7 @@ app.get("/api/video-blogs", asyncHandler((req, res) => {
   if (req.query.homepage === "true") filter.showOnHomepage = true;
   if (req.query.category) filter.category = req.query.category;
   if (req.query.search) {
-    const regex = new RegExp(req.query.search, "i");
+    const regex = safeSearchRegex(req.query.search);
     filter.$or = [{ title: regex }, { shortDescription: regex }, { category: regex }, { speaker: regex }, { tags: regex }];
   }
   return list(req, res, VideoBlog, filter, {
@@ -3374,7 +3283,7 @@ app.post("/api/subscribers", asyncHandler(async (req, res) => {
 }));
 app.post("/api/contact", asyncHandler(async (req, res) => {
   if (!req.body.name || !req.body.email || !req.body.message) return res.status(400).json({ success: false, message: "Name, email and message are required" });
-  const contactMessage = await ContactMessage.create(req.body);
+  const contactMessage = await ContactMessage.create(pick(req.body, ["name", "email", "phone", "subject", "classTitle", "message"]));
   /* The same endpoint carries both plain enquiries and Sunday class
      registrations; classTitle is what tells them apart. */
   const isClassRegistration = Boolean(req.body.classTitle);
@@ -3420,7 +3329,17 @@ app.get("/api/teacher/dashboard", protect, authorize("teacher", "main_admin"), a
     Enrollment.find({ course: { $in: ids } }).populate("student", "name email profileImage").lean(),
     Enrollment.find({ course: { $in: ids } }).populate("student", "name email profileImage").populate("course", "title slug").sort({ createdAt: -1 }).limit(8).lean()
   ]);
-  res.json({ success: true, dashboard: { assignedCourses: courses.length, totalStudents: new Set(enrollments.map((item) => item.student?._id?.toString())).size, totalLessons, recentEnrollments, courses } });
+  const [pendingChats, pendingComments, analytics] = await Promise.all([
+    ChatRoom.countDocuments({ course: { $in: ids }, assignedToType: "teacher", assignedTeacherId: req.user._id, status: { $in: ["open", "pending"] } }),
+    Comment.countDocuments({ course: { $in: ids }, assignedToType: "teacher", assignedTeacherId: req.user._id, status: "pending" }),
+    TeacherAnalytics.findOne({ teacher: req.user._id }).lean()
+  ]);
+  const totalStudents = new Set(enrollments.map((item) => item.student?._id?.toString())).size;
+  res.json({
+    success: true,
+    dashboard: { assignedCourses: courses.length, totalStudents, totalLessons, recentEnrollments, courses },
+    stats: { totalCourses: courses.length, totalStudents, pendingChats, pendingComments, averageReplyTime: analytics?.averageReplyTime || 0, studentRating: analytics?.studentRating || 0 }
+  });
 }));
 app.get("/api/teacher/courses", protect, authorize("teacher", "main_admin"), asyncHandler(async (req, res) => {
   const filter = req.user.role === "main_admin" ? {} : { teacher: req.user._id };
@@ -3438,10 +3357,10 @@ app.get("/api/teacher/blogs", protect, authorize("teacher", "main_admin"), async
   const filter = req.user.role === "main_admin" ? {} : { author: req.user._id };
   res.json({ success: true, items: await Blog.find(filter).populate("author", "name email").sort({ createdAt: -1 }).lean() });
 }));
-app.post("/api/teacher/blogs", protect, authorize("teacher", "main_admin"), requirePermission("canCreateBlog"), asyncHandler(async (req, res) => res.status(201).json({ success: true, item: await Blog.create({ ...req.body, slug: req.body.slug || slugify(req.body.title), author: req.user._id }) })));
+app.post("/api/teacher/blogs", protect, authorize("teacher", "main_admin"), requirePermission("canCreateBlog"), asyncHandler(async (req, res) => res.status(201).json({ success: true, item: await Blog.create({ ...pickModelFields(Blog, req.body, ["author"]), slug: req.body.slug || slugify(req.body.title), author: req.user._id }) })));
 app.put("/api/teacher/blogs/:id", protect, authorize("teacher", "main_admin"), requirePermission("canCreateBlog"), asyncHandler(async (req, res) => {
   const filter = req.user.role === "main_admin" ? { _id: req.params.id } : { _id: req.params.id, author: req.user._id };
-  res.json({ success: true, item: await Blog.findOneAndUpdate(filter, { ...req.body, slug: req.body.slug || slugify(req.body.title) }, { new: true, runValidators: true }) });
+  res.json({ success: true, item: await Blog.findOneAndUpdate(filter, { ...pickModelFields(Blog, req.body, ["author"]), slug: req.body.slug || slugify(req.body.title) }, { new: true, runValidators: true }) });
 }));
 app.delete("/api/teacher/blogs/:id", protect, authorize("teacher", "main_admin"), requirePermission("canCreateBlog"), asyncHandler(async (req, res) => {
   const filter = req.user.role === "main_admin" ? { _id: req.params.id } : { _id: req.params.id, author: req.user._id };
@@ -3449,7 +3368,7 @@ app.delete("/api/teacher/blogs/:id", protect, authorize("teacher", "main_admin")
   res.json({ success: true, message: "Blog deleted" });
 }));
 app.get("/api/teacher/video-blogs", protect, authorize("teacher", "main_admin"), asyncHandler(async (req, res) => res.json({ success: true, items: await VideoBlog.find().sort({ createdAt: -1 }).lean() })));
-app.post("/api/teacher/video-blogs", protect, authorize("teacher", "main_admin"), requirePermission("canCreateVideoBlog"), asyncHandler(async (req, res) => res.status(201).json({ success: true, item: await VideoBlog.create({ ...req.body, slug: req.body.slug || slugify(req.body.title) }) })));
+app.post("/api/teacher/video-blogs", protect, authorize("teacher", "main_admin"), requirePermission("canCreateVideoBlog"), asyncHandler(async (req, res) => res.status(201).json({ success: true, item: await VideoBlog.create({ ...pickModelFields(VideoBlog, req.body), slug: req.body.slug || slugify(req.body.title) }) })));
 
 /* ============================================================
    Activity trail and client fingerprinting
@@ -3921,7 +3840,7 @@ app.get("/api/admin/users", ...adminOnly, asyncHandler(async (req, res) => {
   if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
   if (req.query.role && req.query.role !== "all") filter.role = req.query.role;
   if (req.query.search) {
-    const regex = new RegExp(req.query.search, "i");
+    const regex = safeSearchRegex(req.query.search);
     filter.$or = [{ name: regex }, { email: regex }, { phone: regex }, { mobile: regex }];
   }
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
@@ -3956,7 +3875,11 @@ app.put("/api/admin/users/:id", ...adminOnly, asyncHandler(async (req, res) => {
   ["name", "email", "phone", "mobile", "role", "status", "bio", "profileImage"].forEach((field) => {
     if (req.body[field] !== undefined) user[field] = req.body[field];
   });
-  if (req.body.password) user.password = req.body.password;
+  if (req.body.password) {
+    if (!strongPassword(req.body.password)) return res.status(400).json({ success: false, message: "Password must be at least 8 characters and include letters and numbers" });
+    user.password = req.body.password;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+  }
   if (req.body.emailVerified !== undefined) user.emailVerified = toBoolean(req.body.emailVerified);
   if (req.body.mustChangePassword !== undefined) user.mustChangePassword = toBoolean(req.body.mustChangePassword);
   await user.save();
@@ -3981,10 +3904,11 @@ app.put("/api/admin/users/:id/unblock", ...adminOnly, asyncHandler(async (req, r
 app.put("/api/admin/users/:id/password", ...adminOnly, asyncHandler(async (req, res) => {
   const { password } = req.body;
   if (!password || !strongPassword(password)) return res.status(400).json({ success: false, message: "Temporary password must be at least 8 characters and include letters and numbers" });
-  const user = await User.findById(req.params.id).select("+password");
+  const user = await User.findById(req.params.id).select("+password +tokenVersion");
   if (!user) return res.status(404).json({ success: false, message: "User not found" });
   user.password = password;
   user.mustChangePassword = true;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
   await user.save();
   await createNotification({ user: user._id, type: "password_updated_by_admin", title: "Temporary password set", message: "Admin updated your password. Please change it after login." });
   await sendEmail({ to: user.email, subject: "Temporary password set", text: "Admin updated your ISKCON Juhu Self-Excellence password. Please login and change it." });
@@ -4019,10 +3943,11 @@ app.put("/api/admin/password-reset-requests/:id", ...adminOnly, asyncHandler(asy
   request.resolvedBy = req.user._id;
   request.resolvedAt = new Date();
   if (status === "approved" && req.body.temporaryPassword) {
-    const user = request.user ? await User.findById(request.user).select("+password") : await User.findOne({ email: request.email }).select("+password");
+    const user = request.user ? await User.findById(request.user).select("+password +tokenVersion") : await User.findOne({ email: request.email }).select("+password +tokenVersion");
     if (user) {
       user.password = req.body.temporaryPassword;
       user.mustChangePassword = true;
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
       user.status = user.status === "pending" ? "active" : user.status;
       await user.save();
       request.user = user._id;
@@ -4105,10 +4030,9 @@ app.get(
     })
 );
 app.get("/api/admin/footer", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, footer: await FooterSetting.findOne({ singletonKey: "footer" }).lean() })));
-app.put("/api/admin/footer", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, footer: await FooterSetting.findOneAndUpdate({ singletonKey: "footer" }, { ...req.body, singletonKey: "footer" }, { new: true, upsert: true }) })));
-app.get("/api/admin/site-settings", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, settings: await SiteSetting.findOne({ singletonKey: "site" }).lean() })));
-app.put("/api/admin/site-settings", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, settings: await SiteSetting.findOneAndUpdate({ singletonKey: "site" }, { ...req.body, singletonKey: "site" }, { new: true, upsert: true }) })));
-app.put("/api/admin/legal/:slug", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, item: await LegalPage.findOneAndUpdate({ slug: req.params.slug }, { ...req.body, slug: req.params.slug }, { new: true, upsert: true }) })));
+app.put("/api/admin/footer", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, footer: await FooterSetting.findOneAndUpdate({ singletonKey: "footer" }, { ...pickModelFields(FooterSetting, req.body, ["singletonKey"]), singletonKey: "footer" }, { new: true, upsert: true, runValidators: true }) })));
+attachSiteSettingsRoutes(app, { adminOnly, asyncHandler, recordActivity });
+app.put("/api/admin/legal/:slug", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, item: await LegalPage.findOneAndUpdate({ slug: req.params.slug }, { ...pickModelFields(LegalPage, req.body, ["slug"]), slug: req.params.slug }, { new: true, upsert: true, runValidators: true }) })));
 app.put("/api/admin/contact-messages/:id/read", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, item: await ContactMessage.findByIdAndUpdate(req.params.id, { status: "read" }, { new: true }) })));
 app.get("/api/admin/contact-settings", ...adminOnly, asyncHandler(async (req, res) => {
   let settings = await ContactSetting.findOne({ singletonKey: "contact" }).lean();
@@ -4131,7 +4055,7 @@ app.get("/api/admin/contact-settings", ...adminOnly, asyncHandler(async (req, re
 app.put("/api/admin/contact-settings", ...adminOnly, asyncHandler(async (req, res) => {
   const settings = await ContactSetting.findOneAndUpdate(
     { singletonKey: "contact" },
-    { ...req.body, singletonKey: "contact" },
+    { ...pickModelFields(ContactSetting, req.body, ["singletonKey"]), singletonKey: "contact" },
     { new: true, upsert: true }
   );
   if (req.body.address || req.body.phone || req.body.email) {
@@ -4188,7 +4112,7 @@ const adminFilter = (req, name, resource) => {
   if (req.query.questionBank) filter.questionBank = req.query.questionBank;
   if (resource === "video-intro") filter.sectionKey = "video_intro";
   if (req.query.search) {
-    const regex = new RegExp(req.query.search, "i");
+    const regex = safeSearchRegex(req.query.search);
     filter.$or = (fields[name] || ["title", "name", "slug"]).map((field) => ({ [field]: regex }));
   }
   return filter;
@@ -4549,6 +4473,9 @@ app.delete("/api/chats/message/:messageId", protect, asyncHandler(async (req, re
 
 // Fetch lesson comments / doubts organizes by page
 app.get("/api/comments/course/:courseId", protect, asyncHandler(async (req, res) => {
+  const mayModerate = ["main_admin", "admin", "manager", "teacher"].includes(req.user.role);
+  const enrolled = mayModerate || await Enrollment.exists({ user: req.user._id, course: req.params.courseId, status: { $in: ["active", "completed"] } });
+  if (!enrolled) return res.status(403).json({ success: false, message: "Course enrollment is required" });
   const filter = { course: req.params.courseId, parentComment: null };
   if (req.query.lessonId) filter.lesson = req.query.lessonId;
   
@@ -4589,9 +4516,9 @@ app.get("/api/comments/admin/board", protect, authorize("main_admin", "teacher")
   }
 
   if (req.query.search) {
-    const userMatches = await User.find({ name: new RegExp(req.query.search, "i") }).select("_id");
+    const userMatches = await User.find({ name: safeSearchRegex(req.query.search) }).select("_id");
     filter.$or = [
-      { text: new RegExp(req.query.search, "i") },
+      { text: safeSearchRegex(req.query.search) },
       { user: { $in: userMatches.map(u => u._id) } }
     ];
   }
@@ -4672,7 +4599,7 @@ app.post("/api/comments/:commentId/reply", protect, authorize("main_admin", "tea
 }));
 
 // Resolve doubt comment
-app.patch("/api/comments/:commentId/resolve", protect, asyncHandler(async (req, res) => {
+app.patch("/api/comments/:commentId/resolve", protect, authorize("main_admin", "teacher"), asyncHandler(async (req, res) => {
   const comment = await Comment.findById(req.params.commentId);
   if (!comment) return res.status(404).json({ success: false, message: "Comment not found" });
   
@@ -4703,25 +4630,10 @@ app.patch("/api/comments/:commentId/pin", protect, authorize("main_admin", "teac
 // NOTIFICATIONS & SYSTEM BADGES API
 // ==========================================
 
-app.get("/api/notifications", protect, asyncHandler(async (req, res) => {
-  const items = await Notification.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(100).lean();
-  res.json({ success: true, items });
-}));
-
-app.put("/api/notifications/:id/read", protect, asyncHandler(async (req, res) => {
-  const item = await Notification.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, { read: true, readAt: new Date() }, { new: true });
-  if (!item) return res.status(404).json({ success: false, message: "Notification not found" });
-  res.json({ success: true, item });
-}));
-
 app.patch("/api/notifications/mark-all-read", protect, asyncHandler(async (req, res) => {
-  await Notification.updateMany({ user: req.user._id }, { read: true, readAt: new Date() });
+  const audience = req.user.role === "main_admin" ? "admin" : "user";
+  await Notification.updateMany({ $or: [{ user: req.user._id }, { audience }, { audience: "all" }] }, { read: true, readAt: new Date() });
   res.json({ success: true, message: "All notifications marked as read" });
-}));
-
-app.delete("/api/notifications/:id", protect, asyncHandler(async (req, res) => {
-  await Notification.findOneAndDelete({ _id: req.params.id, user: req.user._id });
-  res.json({ success: true, message: "Deleted" });
 }));
 
 
@@ -4878,12 +4790,16 @@ app.get("/api/analytics/admin-dashboard", protect, authorize("main_admin", "teac
 // Retrieve devotee full report card metrics
 app.get("/api/analytics/student/:studentId", protect, asyncHandler(async (req, res) => {
   const userId = req.params.studentId;
+  const isSelf = String(req.user._id) === String(userId);
+  const mayViewOthers = ["main_admin", "admin", "manager", "teacher"].includes(req.user.role);
+  if (!isSelf && !mayViewOthers) return res.status(403).json({ success: false, message: "You may only view your own analytics" });
   const user = await User.findById(userId).select("name email profileImage adminNotes isOnline lastSeen").lean();
   if (!user) return res.status(404).json({ success: false, message: "Devotee account not found" });
 
   const analytics = await StudentAnalytics.find({ user: userId }).populate("course", "title").lean();
   const activities = await UserActivity.find({ user: userId }).populate("course", "title").populate("lesson", "title").lean();
 
+  if (!mayViewOthers && user) delete user.adminNotes;
   res.json({ success: true, student: user, analytics, activities });
 }));
 
@@ -4995,47 +4911,6 @@ const emitToRole = async (roleName, eventName, data) => {
     emitToUser(u._id, eventName, data);
   });
 };
-
-// 1. TEACHER APIS
-app.get("/api/teacher/dashboard", protect, authorize("teacher"), asyncHandler(async (req, res) => {
-  const teacherId = req.user._id;
-  const assignedCourseIds = req.user.assignedCourses || [];
-
-  const totalCourses = assignedCourseIds.length;
-  const totalStudents = await Enrollment.countDocuments({ course: { $in: assignedCourseIds } });
-  
-  const pendingChats = await ChatRoom.countDocuments({
-    course: { $in: assignedCourseIds },
-    assignedToType: "teacher",
-    assignedTeacherId: teacherId,
-    status: { $in: ["open", "pending"] }
-  });
-
-  const pendingComments = await Comment.countDocuments({
-    course: { $in: assignedCourseIds },
-    assignedToType: "teacher",
-    assignedTeacherId: teacherId,
-    status: "pending"
-  });
-
-  // Calculate average reply time and student rating
-  const analytics = await TeacherAnalytics.findOne({ teacher: teacherId }) || {
-    averageReplyTime: 12,
-    studentRating: 4.8
-  };
-
-  res.json({
-    success: true,
-    stats: {
-      totalCourses,
-      totalStudents,
-      pendingChats,
-      pendingComments,
-      averageReplyTime: analytics.averageReplyTime,
-      studentRating: analytics.studentRating
-    }
-  });
-}));
 
 app.get("/api/teacher/assigned-courses", protect, authorize("teacher"), asyncHandler(async (req, res) => {
   const assignedCourseIds = req.user.assignedCourses || [];
@@ -5519,12 +5394,13 @@ app.patch("/api/admin/teachers/:teacherId/unblock", protect, requireSectionPermi
 // PATCH Reset Password
 app.patch("/api/admin/teachers/:teacherId/reset-password", protect, requireSectionPermission("teachers", "edit"), asyncHandler(async (req, res) => {
   const { password } = req.body;
-  if (!password || password.length < 6) return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+  if (!strongPassword(password)) return res.status(400).json({ success: false, message: "Password must be at least 8 characters and include letters and numbers" });
   
   const teacher = await User.findById(req.params.teacherId);
   if (!teacher) return res.status(404).json({ success: false, message: "Teacher not found" });
 
   teacher.password = password;
+  teacher.tokenVersion = (teacher.tokenVersion || 0) + 1;
   await teacher.save();
   res.json({ success: true, message: "Password reset successfully" });
 }));
@@ -6109,7 +5985,7 @@ app.get("/api/admin/activity-log", protect, staffGate, asyncHandler(async (req, 
   if (req.query.section && req.query.section !== "all") filter.section = req.query.section;
   if (req.query.source && req.query.source !== "all") filter.source = req.query.source;
   if (req.query.search) {
-    const rx = new RegExp(req.query.search, "i");
+    const rx = safeSearchRegex(req.query.search);
     filter.$or = [{ label: rx }, { userName: rx }, { resource: rx }, { ip: rx }];
   }
   const limit = Math.min(Math.max(parseInt(req.query.limit || "60", 10), 1), 200);
@@ -6384,10 +6260,11 @@ app.put("/api/admin/staff/:id", protect, staffGate, asyncHandler(async (req, res
 
   if (req.body.password && String(req.body.password).trim()) {
     const rawPass = String(req.body.password).trim();
-    if (rawPass.length < 6) {
-      return res.status(400).json({ success: false, message: "New password must be at least 6 characters long." });
+    if (!strongPassword(rawPass)) {
+      return res.status(400).json({ success: false, message: "New password must be at least 8 characters and include letters and numbers." });
     }
     target.password = rawPass;
+    target.tokenVersion = (target.tokenVersion || 0) + 1;
   }
 
   await target.save();
@@ -6890,12 +6767,12 @@ app.get("/api/lessons/:lessonId/content", protect, authorizeLearner, asyncHandle
 
 app.post("/api/lessons/:lessonId/content", protect, authorize("main_admin", "teacher"), asyncHandler(async (req, res) => {
   const lesson = await Lesson.findById(req.params.lessonId);
-  const content = await CourseContent.create({ ...req.body, course: lesson.course, lesson: lesson._id });
+  const content = await CourseContent.create({ ...pickModelFields(CourseContent, req.body, ["course", "lesson"]), course: lesson.course, lesson: lesson._id });
   res.status(201).json({ success: true, item: content });
 }));
 
 app.put("/api/content/:id", protect, authorize("main_admin", "teacher"), asyncHandler(async (req, res) => {
-  const content = await CourseContent.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const content = await CourseContent.findByIdAndUpdate(req.params.id, pickModelFields(CourseContent, req.body, ["course", "lesson"]), { new: true, runValidators: true });
   res.json({ success: true, item: content });
 }));
 
@@ -6906,7 +6783,7 @@ app.delete("/api/content/:id", protect, authorize("main_admin", "teacher"), asyn
 
 // --- EXAM ASSIGNMENT OVERRIDES ---
 app.post("/api/admin/exam-assignments", protect, authorize("main_admin", "teacher"), asyncHandler(async (req, res) => {
-  const assignment = await ExamAssignment.create(req.body);
+  const assignment = await ExamAssignment.create(pick(req.body, ["exam", "course", "lesson", "startDate", "endDate", "maxAttempts", "isActive"]));
   const exam = await ExamPaper.findById(assignment.exam);
   
   // Create CourseContent for this exam
@@ -6925,7 +6802,7 @@ app.post("/api/admin/exam-assignments", protect, authorize("main_admin", "teache
 }));
 
 app.put("/api/admin/exam-assignments/:id", protect, authorize("main_admin", "teacher"), asyncHandler(async (req, res) => {
-  const assignment = await ExamAssignment.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const assignment = await ExamAssignment.findByIdAndUpdate(req.params.id, pick(req.body, ["exam", "course", "lesson", "startDate", "endDate", "maxAttempts", "isActive"]), { new: true, runValidators: true });
   // Update associated CourseContent if exists
   await CourseContent.findOneAndUpdate(
     { course: assignment.course, examPaper: assignment.exam },
@@ -7870,7 +7747,8 @@ mongoose
     } catch (e) {
       console.warn("Initial sitemap sync deferred:", e.message);
     }
-    server.listen(port, () => console.log(`API listening on http://localhost:${port}`));
+    const host = process.env.SERVER_HOST;
+    server.listen(port, ...(host ? [host] : []), () => console.log(`API listening on http://${host || "localhost"}:${port}`));
   })
   .catch((error) => {
     console.error("MongoDB connection failed", error.message);

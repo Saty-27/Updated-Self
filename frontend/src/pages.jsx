@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { sanitizedHtml } from "./shared/sanitizeHtml";
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import {
   BarChart3,
@@ -84,6 +85,7 @@ import { apiFetch, assetUrl, uploadFile, API_URL } from "./api";
 import { useAuth } from "./AuthContext";
 import { usePermissions } from "./usePermissions";
 import { useHomepageSections } from "./useHomepageSections";
+import { homeForRole } from "./core/auth/access";
 import {
   benefits as fallbackBenefits,
   blogs as fallbackBlogs,
@@ -142,9 +144,7 @@ const useSingle = (path, fallback = null, key = "item") => {
 
 /* Staff roles all land in the admin panel; everyone else keeps the
    destination they had before. */
-const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer", "outreach_coordinator", "attendance_operator"];
-const homeFor = (role) =>
-  STAFF_ROLES.includes(role) ? "/admin/dashboard" : role === "teacher" ? "/teacher/dashboard" : "/student/dashboard";
+const homeFor = (role) => homeForRole(role);
 
 const sectionMap = (sections) => Object.fromEntries(sections.map((section) => [section.sectionKey, section]));
 const active = (section) => section && section.status !== "inactive";
@@ -749,7 +749,7 @@ export const CourseDetailPage = () => {
         <div className="rounded-2xl bg-white p-6 shadow-sm w-full min-w-0">
           <div className="mb-6 flex flex-wrap gap-3 text-sm font-bold text-muted"><span>{course.duration || "Self paced"}</span><span>{course.level}</span><span>{displayLessons.length} lessons</span><span>{course.priceType === "Paid" ? `₹${course.price || 0}` : "Free"}</span></div>
           {progress && <ProgressBar percent={progress.percent} label={`${progress.completedLessons} of ${progress.totalLessons} lessons completed`} />}
-          <div className="prose mt-8 max-w-none" dangerouslySetInnerHTML={{ __html: course.description }} />
+          <div className="prose mt-8 max-w-none" dangerouslySetInnerHTML={sanitizedHtml(course.description)} />
           {course.whatYouWillLearn?.length > 0 && <><h2 className="mt-10 text-2xl font-black">What you will learn</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{course.whatYouWillLearn.map((item) => <div key={item} className="flex gap-2 rounded-xl bg-soft p-3 text-sm font-bold"><CheckCircle2 className="text-primary" size={18} />{item}</div>)}</div></>}
           <div className="mt-10 grid gap-6 w-full min-w-0 xl:grid-cols-[0.95fr_1.05fr]">
             <div className="w-full min-w-0">
@@ -766,7 +766,7 @@ export const CourseDetailPage = () => {
                           <h3 className="font-black text-ink truncate">{lesson.title}</h3>
                           {lesson.locked && <Lock size={14} className="text-muted shrink-0" />}
                         </div>
-                        <div className="mt-1 line-clamp-2 text-sm leading-6 text-muted prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0" dangerouslySetInnerHTML={{ __html: lesson.description }} />
+                        <div className="mt-1 line-clamp-2 text-sm leading-6 text-muted prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0" dangerouslySetInnerHTML={sanitizedHtml(lesson.description)} />
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-black text-muted">
                           <span>{lesson.videoType === "upload" ? "Uploaded video" : "YouTube"}</span>
                           {lesson.pdfFile && <span>PDF available</span>}
@@ -859,7 +859,7 @@ export const CourseDetailPage = () => {
                   <>
                     <VideoPlayer url={activeLesson.videoUrl} youtubeUrl={activeLesson.youtubeUrl} uploadedVideo={activeLesson.uploadedVideo} videoType={activeLesson.videoType} title={activeLesson.title} />
                     <h3 className="mt-4 text-xl font-black">{activeLesson.title}</h3>
-                    <div className="mt-2 text-sm leading-6 text-muted prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0" dangerouslySetInnerHTML={{ __html: activeLesson.description }} />
+                    <div className="mt-2 text-sm leading-6 text-muted prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0" dangerouslySetInnerHTML={sanitizedHtml(activeLesson.description)} />
                     <div className="mt-4 flex flex-wrap gap-3">
                       <ResourceLink href={activeLesson.pdfFile} label="View PDF" />
                       {activeLesson.pdfFile && <a href={assetUrl(activeLesson.pdfFile)} download className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-bold text-white">Download PDF</a>}
@@ -2146,7 +2146,7 @@ export const BlogDetailPage = ({ video = false }) => {
 
           {/* Description Content */}
           <div className="blog-prose font-ui text-[16.5px] leading-[1.75] text-[#4F4842]">
-            <div dangerouslySetInnerHTML={{ __html: item.content || item.description }} />
+            <div dangerouslySetInnerHTML={sanitizedHtml(item.content || item.description)} />
           </div>
 
           {item.listItems?.length > 0 && (
@@ -2261,7 +2261,7 @@ export const GalleryPage = ({ videos = false }) => {
 
 export const LegalPage = ({ slug, title }) => {
   const { item } = useSingle(`/legal/${slug}`, { title, content: "<p>This legal page can be edited from the admin dashboard.</p>" }, "legalPage");
-  return <><SEO title={item.title} /><PageBanner title={item.title} image={images.books} /><section className="section-pad bg-white"><div className="container-pad prose max-w-4xl" dangerouslySetInnerHTML={{ __html: item.content }} /></section></>;
+  return <><SEO title={item.title} /><PageBanner title={item.title} image={images.books} /><section className="section-pad bg-white"><div className="container-pad prose max-w-4xl" dangerouslySetInnerHTML={sanitizedHtml(item.content)} /></section></>;
 };
 
 export const SitemapPage = () => {
@@ -2462,8 +2462,7 @@ export const AuthPage = ({ register = false, admin = false, teacher = false }) =
         navigate(redirectUrl || homeFor(user.role));
         return;
       }
-      const passwordToSend = (admin || teacher) ? form.password : "";
-      const user = await login(form.email, passwordToSend);
+      const user = await login(form.email, form.password);
       navigate(redirectUrl || homeFor(user.role));
     } catch (err) {
       if (!admin && !teacher && (err.notFound || err.status === 404 || err.message?.toLowerCase().includes("not registered") || err.message?.toLowerCase().includes("not found"))) {
@@ -2509,18 +2508,18 @@ export const AuthPage = ({ register = false, admin = false, teacher = false }) =
             )}
             <input value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setError(""); }} required type="email" autoComplete="email" placeholder="Email" className="h-12 rounded-xl border border-black/10 px-4 text-[16px] outline-none focus:border-primary" />
             
-            {(admin || teacher || register) && (
+            {(admin || teacher || register || !register) && (
               <div className="relative flex items-center">
-                <input value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setError(""); }} required={admin || teacher} type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder={register ? "Password (optional)" : "Password"} className="h-12 w-full rounded-xl border border-black/10 pl-4 pr-12 text-[16px] outline-none focus:border-primary" />
+                <input value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setError(""); }} required minLength={8} type={showPassword ? "text" : "password"} autoComplete={register ? "new-password" : "current-password"} placeholder={register ? "Password (8+ characters, letters and numbers)" : "Password"} className="h-12 w-full rounded-xl border border-black/10 pl-4 pr-12 text-[16px] outline-none focus:border-primary" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 text-muted hover:text-primary transition" aria-label={showPassword ? "Hide password" : "Show password"}>
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             )}
 
-            {register && form.password && (
+            {register && (
               <div className="relative flex items-center">
-                <input value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required={Boolean(form.password)} type={showConfirmPassword ? "text" : "password"} placeholder="Confirm password" className="h-12 w-full rounded-xl border border-black/10 pl-4 pr-12 text-[16px] outline-none focus:border-primary" />
+                <input value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required minLength={8} autoComplete="new-password" type={showConfirmPassword ? "text" : "password"} placeholder="Confirm password" className="h-12 w-full rounded-xl border border-black/10 pl-4 pr-12 text-[16px] outline-none focus:border-primary" />
                 <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 text-muted hover:text-primary transition" aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}>
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -7073,10 +7072,6 @@ export const AdminSettingsPage = ({ type }) => {
           <div>
             <label className="mb-2 block text-xs font-black uppercase text-muted">Google Search Console Tag (Meta Tag)</label>
             <textarea rows="2" value={item.googleSearchConsoleTag || ""} onChange={(e) => handleFormFieldChange("googleSearchConsoleTag", e.target.value)} placeholder='e.g., <meta name="google-site-verification" content="XYZ..." />' className="w-full rounded-xl border border-black/10 px-4 py-3 font-mono text-sm outline-none focus:border-primary" />
-          </div>
-          <div>
-            <label className="mb-2 block text-xs font-black uppercase text-muted">Custom Header Script / Third Party Tags (Bing, Yahoo, Google Analytics)</label>
-            <textarea rows="4" value={item.customHeaderHtml || ""} onChange={(e) => handleFormFieldChange("customHeaderHtml", e.target.value)} placeholder="e.g., <script>...</script> or <meta name='msvalidate.01' content='...' />" className="w-full rounded-xl border border-black/10 px-4 py-3 font-mono text-sm outline-none focus:border-primary" />
           </div>
           <div>
             <button onClick={handleFormSave} className="rounded-full bg-primary px-6 py-3 text-sm font-black text-white">Save Site Settings</button>
