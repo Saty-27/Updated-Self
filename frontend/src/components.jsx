@@ -1074,8 +1074,9 @@ export const PublicLayout = () => {
   const overlayNav = pathname === "/";
   return (
   <div className="flex min-h-screen flex-col w-full">
+    <a href="#main-content" className="skip-link">Skip to main content</a>
     <Navbar />
-    <main className={`flex-grow ${overlayNav ? "" : "pt-[68px] lg:pt-[84px]"}`}>
+    <main id="main-content" tabIndex="-1" className={`flex-grow ${overlayNav ? "" : "pt-[68px] lg:pt-[84px]"}`}>
       <Outlet />
     </main>
     <Footer />
@@ -1715,6 +1716,7 @@ export const DashboardLayout = ({ role }) => {
   };
   return (
     <div className="min-h-screen bg-soft w-full">
+      <a href="#dashboard-content" className="skip-link">Skip to dashboard content</a>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-black/5 bg-white lg:block">
         <Link to="/" className="flex h-20 items-center border-b border-black/5 px-6" aria-label="ISKCON Juhu Self-Excellence"><BrandLogo compact /></Link>
         <nav className="h-[calc(100vh-9rem)] overflow-y-auto custom-scrollbar px-4 py-5">
@@ -1725,7 +1727,7 @@ export const DashboardLayout = ({ role }) => {
         </nav>
         <button onClick={handleLogout} className="mx-4 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-bold text-white"><LogOut size={18} />Logout</button>
       </aside>
-      <main className="lg:pl-72">
+      <main id="dashboard-content" tabIndex="-1" className="lg:pl-72">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-black/5 bg-white px-4 lg:px-8">
           <Link to="/" className="min-w-0 flex-1 mr-2 block hover:opacity-85 transition cursor-pointer" title="Go to homepage">
             <p className="text-[10px] sm:text-xs font-bold uppercase text-primary">{(user?.role || role).replace("_", " ")}</p>

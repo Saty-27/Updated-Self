@@ -6,8 +6,8 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem("iskcon_lms_token"));
-  const [loading, setLoading] = useState(Boolean(token));
+  const [token, setToken] = useState("cookie-session");
+  const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
@@ -18,7 +18,6 @@ export const AuthProvider = ({ children }) => {
     apiFetch("/auth/me")
       .then((data) => setUser(data.user))
       .catch(() => {
-        localStorage.removeItem("iskcon_lms_token");
         setToken(null);
         setUser(null);
       })
@@ -51,7 +50,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const socketInstance = io(getSocketUrl(), {
-      auth: { token },
+      withCredentials: true,
       transports: ["websocket", "polling"]
     });
 
@@ -78,8 +77,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const data = await apiFetch("/auth/login", { method: "POST", body: { email, password } });
-    localStorage.setItem("iskcon_lms_token", data.token);
-    setToken(data.token);
+    setToken("cookie-session");
     setUser(data.user);
     return data.user;
   };
@@ -87,8 +85,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (payload) => {
     const data = await apiFetch("/auth/register", { method: "POST", body: payload });
     if (data.token) {
-      localStorage.setItem("iskcon_lms_token", data.token);
-      setToken(data.token);
+      setToken("cookie-session");
       setUser(data.user);
     }
     return data;
@@ -96,8 +93,7 @@ export const AuthProvider = ({ children }) => {
 
   const verifyOtp = async (payload) => {
     const data = await apiFetch("/auth/verify-otp", { method: "POST", body: payload });
-    localStorage.setItem("iskcon_lms_token", data.token);
-    setToken(data.token);
+    setToken("cookie-session");
     setUser(data.user);
     return data.user;
   };
@@ -124,14 +120,13 @@ export const AuthProvider = ({ children }) => {
      answers with our own JWT, exactly as a password sign-in would. */
   const loginWithGoogle = async (credential) => {
     const data = await apiFetch("/auth/google", { method: "POST", body: { credential } });
-    localStorage.setItem("iskcon_lms_token", data.token);
-    setToken(data.token);
+    setToken("cookie-session");
     setUser(data.user);
     return data;
   };
 
-  const logout = () => {
-    localStorage.removeItem("iskcon_lms_token");
+  const logout = async () => {
+    await apiFetch("/auth/logout", { method: "POST" }).catch(() => {});
     setToken(null);
     setUser(null);
   };

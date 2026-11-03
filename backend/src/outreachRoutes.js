@@ -5,6 +5,7 @@ import {
   OutreachProgram, OutreachSession, OutreachSettings
 } from "./outreachModels.js";
 import { User } from "./models.js";
+import { contactCreateInput, followUpCreateInput, isValidDate, programCreateInput, sessionCreateInput } from "./outreachValidation.js";
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const id = (value) => String(value?._id || value || "");
@@ -90,22 +91,18 @@ export const attachOutreachRoutes = (app, { protect, canAccessSection, recordAct
   }));
 
   app.post("/api/outreach/contacts", protect, coordinator("create"), wrap(async (req, res) => {
-    const fullName = clean(req.body.fullName, 160);
-    const primaryPhone = phone(req.body.primaryPhone);
-    const email = clean(req.body.email, 200).toLowerCase();
-    const occupation = clean(req.body.occupation, 200);
-    const registrationSource = clean(req.body.registrationSource, 200);
-    if (!fullName || !primaryPhone || !email || !occupation || !registrationSource || !req.body.registrationDate) return res.status(400).json({ success: false, message: "Full name, primary contact, email, occupation, registration date and source are required." });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ success: false, message: "Enter a valid email address." });
-    if (req.body.ageGroup === "minor" && !req.body.guardianConsentConfirmed) return res.status(400).json({ success: false, message: "Approved guardian consent must be confirmed before registering a minor for follow-up." });
+    const input = contactCreateInput(req.body);
+    if (!input.fullName || !input.primaryPhone || !input.email || !input.occupation || !input.registrationSource || !isValidDate(input.registrationDate)) return res.status(400).json({ success: false, message: "Full name, primary contact, email, occupation, registration date and source are required." });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) return res.status(400).json({ success: false, message: "Enter a valid email address." });
+    if (input.ageGroup === "minor" && !input.guardianConsentConfirmed) return res.status(400).json({ success: false, message: "Approved guardian consent must be confirmed before registering a minor for follow-up." });
+    const { fullName, primaryPhone, email, occupation, registrationSource } = input;
     const possibleDuplicates = await OutreachContact.find({ $or: [{ primaryPhone }, { alternatePhone: primaryPhone }] }).select("fullName primaryPhone registrationDate").limit(10).lean();
     const counter = await OutreachCounter.findOneAndUpdate({ key: "contact_sequence" }, { $inc: { value: 1 } }, { upsert: true, new: true });
     const item = await OutreachContact.create({
-      ...req.body, fullName, primaryPhone, email, occupation, registrationSource,
+      ...input,
       sequenceNumber: counter.value,
-      alternatePhone: phone(req.body.alternatePhone), registeredBy: req.user._id,
-      permissionToContact: Boolean(req.body.permissionToContact),
-      followUpStatus: req.body.permissionToContact ? "unassigned" : "opted_out",
+      registeredBy: req.user._id,
+      followUpStatus: input.permissionToContact ? "unassigned" : "opted_out",
       interestStatus: "follow_up_required", linkedAccount: null
     });
     await recordActivity(req, { action: "create", section: "outreach", resource: "outreach-contacts", resourceId: id(item), label: item.fullName, after: item.toObject() });
@@ -199,12 +196,15 @@ export const attachOutreachRoutes = (app, { protect, canAccessSection, recordAct
   app.post("/api/outreach/contacts/:contactId/follow-ups", protect, wrap(async (req, res) => {
     const contact = await requireContactAccess(req, canAccessSection, req.params.contactId);
     if (!contact) return res.status(404).json({ success: false, message: "Contact not found." });
-    if (!contact.permissionToContact && req.body.interestStatus !== "not_interested") return res.status(409).json({ success: false, message: "This contact has opted out. Routine outreach cannot be recorded unless the person re-initiated contact and a coordinator updates consent." });
-    if (!clean(req.body.remarks)) return res.status(400).json({ success: false, message: "The devotee's actual remark is required." });
-    const analysis = analyzeRemark(req.body.remarks);
+    if (!contact.permissionToContact) return res.status(409).json({ success: false, message: "This contact has opted out. A coordinator must record renewed consent before any further outreach." });
+    const input = followUpCreateInput(req.body);
+    if (!input.remarks) return res.status(400).json({ success: false, message: "The devotee's actual remark is required." });
+    if (!["phone_call", "message", "in_person", "event_conversation", "other"].includes(input.channel)) return res.status(400).json({ success: false, message: "Choose a valid follow-up channel." });
+    if (!isValidDate(input.interactedAt) || (input.nextFollowUpDate && !isValidDate(input.nextFollowUpDate))) return res.status(400).json({ success: false, message: "Enter a valid follow-up date." });
+    const analysis = analyzeRemark(input.remarks);
     const outcome = analysis.sentiment === "interested" ? "Interested" : analysis.sentiment === "not_interested" ? "Not interested" : "Interest not yet confirmed";
     const strikeApplied = analysis.sentiment === "unclear";
-    const item = await OutreachFollowUp.create({ ...req.body, interestStatus: analysis.interestStatus, contact: contact._id, volunteer: contact.currentVolunteer || req.user._id, recordedBy: req.user._id, sentiment: analysis.sentiment, analysisSource: "automatic", analysisConfidence: analysis.confidence, strikeApplied, remarks: clean(req.body.remarks), outcome });
+    const item = await OutreachFollowUp.create({ ...input, interestStatus: analysis.interestStatus, contact: contact._id, volunteer: contact.currentVolunteer || req.user._id, recordedBy: req.user._id, sentiment: analysis.sentiment, analysisSource: "automatic", analysisConfidence: analysis.confidence, strikeApplied, outcome });
     contact.interestStatus = analysis.interestStatus;
     contact.interestStatusChangedAt = item.interactedAt;
     contact.lastContactDate = item.interactedAt;
@@ -235,15 +235,17 @@ export const attachOutreachRoutes = (app, { protect, canAccessSection, recordAct
   }));
 
   app.post("/api/outreach/programs", protect, attendanceOperator("create"), wrap(async (req, res) => {
-    if (!clean(req.body.name, 200)) return res.status(400).json({ success: false, message: "Program name is required." });
-    const item = await OutreachProgram.create({ ...req.body, name: clean(req.body.name, 200), createdBy: req.user._id });
+    const input = programCreateInput(req.body);
+    if (!input.name) return res.status(400).json({ success: false, message: "Program name is required." });
+    const item = await OutreachProgram.create({ ...input, createdBy: req.user._id });
     await recordActivity(req, { action: "create", section: "outreach", resource: "outreach-programs", resourceId: id(item), label: item.name, after: item.toObject() });
     res.status(201).json({ success: true, item });
   }));
 
   app.post("/api/outreach/sessions", protect, attendanceOperator("create"), wrap(async (req, res) => {
-    if (!validId(req.body.program) || !req.body.startsAt) return res.status(400).json({ success: false, message: "Program and session date/time are required." });
-    const item = await OutreachSession.create({ ...req.body, createdBy: req.user._id });
+    const input = sessionCreateInput(req.body);
+    if (!validId(input.program) || !isValidDate(input.startsAt)) return res.status(400).json({ success: false, message: "Program and a valid session date/time are required." });
+    const item = await OutreachSession.create({ ...input, createdBy: req.user._id });
     await recordActivity(req, { action: "create", section: "outreach", resource: "outreach-sessions", resourceId: id(item), label: req.body.title || "Program session", after: item.toObject() });
     res.status(201).json({ success: true, item });
   }));

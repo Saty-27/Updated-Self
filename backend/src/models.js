@@ -62,7 +62,7 @@ const userSchema = new Schema(
       required: function () {
         return !this.googleId && ["main_admin", "admin", "manager", "editor", "viewer", "outreach_coordinator", "attendance_operator", "teacher"].includes(this.role);
       },
-      minlength: 6,
+      minlength: 8,
       select: false
     },
     /* Google's stable subject id. Sparse so the unique index ignores
@@ -97,7 +97,10 @@ const userSchema = new Schema(
     specialization: [String],
     teacherType: { type: String, enum: ["primary", "support", "guest", "mentor"], default: "primary" },
     status: userStatus,
-    emailVerified: { type: Boolean, default: true, index: true },
+    emailVerified: { type: Boolean, default: false, index: true },
+    /* Incrementing this value immediately invalidates every previously
+       issued JWT without maintaining a token deny-list. */
+    tokenVersion: { type: Number, default: 0, select: false },
     otpVerifiedAt: Date,
     mustChangePassword: { type: Boolean, default: false },
     lastActiveAt: Date,

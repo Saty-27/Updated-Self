@@ -54,20 +54,33 @@ record device, browser and IP.
 
 ## Running locally
 
-Requires Node.js 18+ and a running MongoDB instance.
+Requires Node.js 22+ and a running MongoDB instance.
 
 ```bash
-# backend
-cd backend
-cp .env.example .env     # then fill in real values
+# Run everything from the repository root
+cp backend/.env.example backend/.env     # then fill in real values
 npm install
-npm run dev              # http://localhost:5055
+npm run dev
 
-# frontend (in a second terminal)
-cd frontend
-npm install
-npm run dev              # http://localhost:5173
+# Frontend: http://localhost:5173
+# Backend:  http://localhost:5055
 ```
+
+For an isolated local backend backed by the development database runtime, use
+`npm run dev:local`. Individual services remain available through
+`npm run dev:backend` and `npm run dev:frontend`.
+
+### Root commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm install` | Install frontend and backend dependencies using the single root lockfile. |
+| `npm run dev` | Start both development services together. |
+| `npm run dev:local` | Start both services with the local-only backend runtime. |
+| `npm test` | Run backend unit and integration tests. |
+| `npm run build` | Build the production frontend. |
+| `npm run audit` | Audit every workspace from the root. |
+| `npm run verify` | Run architecture checks, tests, build, and audits. |
 
 ### Configuration
 
@@ -90,6 +103,8 @@ frontend/
     trips.jsx / tripDetail.jsx / adminTrips.jsx
     classes.jsx / adminClasses.jsx
     adminAccess.jsx   Staff roles, activity trail, sessions
+scripts/
+  dev.mjs             Cross-platform frontend/backend development runner
 ```
 
 ## Not included in this repository

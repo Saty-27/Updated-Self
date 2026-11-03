@@ -12,21 +12,8 @@ import {
 } from "lucide-react";
 import { apiFetch } from "./api";
 import { useAuth } from "./AuthContext";
-
-const statusLabel = {
-  interested: "Interested",
-  not_interested: "Not interested",
-  follow_up_required: "Follow-up required",
-};
-const statusStyle = {
-  interested: "bg-emerald-100 text-emerald-800",
-  not_interested: "bg-rose-100 text-rose-800",
-  follow_up_required: "bg-amber-100 text-amber-800",
-};
-const input =
-  "w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary";
-const button =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-white disabled:opacity-50";
+import { ErrorBanner, Field, Metric, NoticeBanner, PageHeader, TabNavigation, inputClass as input, primaryButtonClass as button, statusLabel, statusStyle } from "./outreachUi";
+import { isAttendanceOnlyRole } from "./core/auth/access";
 const emptyContact = {
   fullName: "",
   primaryPhone: "",
@@ -40,24 +27,9 @@ const emptyContact = {
   ageGroup: "",
 };
 
-const Metric = ({ label, value, note }) => (
-  <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
-    <p className="text-xs font-black uppercase tracking-wide text-muted">
-      {label}
-    </p>
-    <p className="mt-2 text-3xl font-black text-ink">{value ?? 0}</p>
-    {note && <p className="mt-1 text-xs text-muted">{note}</p>}
-  </div>
-);
-const Field = ({ label, children }) => (
-  <label className="block">
-    <span className="mb-1 block text-xs font-black text-ink">{label}</span>
-    {children}
-  </label>
-);
-
 export default function OutreachPage({ volunteerMode = false }) {
   const { user } = useAuth();
+  const attendanceOnly = isAttendanceOnlyRole(user?.role);
   const [tab, setTab] = useState("dashboard");
   const [meta, setMeta] = useState({
     volunteers: [],
@@ -104,11 +76,17 @@ export default function OutreachPage({ volunteerMode = false }) {
     entries: [],
   });
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const tell = (message) => {
+    setError("");
     setNotice(message);
     window.setTimeout(() => setNotice(""), 5000);
+  };
+  const fail = (message) => {
+    setNotice("");
+    setError(message || "Something went wrong. Please try again.");
   };
   const loadMeta = () => apiFetch("/outreach/meta").then(setMeta);
   const loadDashboard = () =>
@@ -119,14 +97,17 @@ export default function OutreachPage({ volunteerMode = false }) {
     ).then((d) => setContacts(d.items || []));
   const refresh = () =>
     Promise.all([loadMeta(), loadDashboard(), loadContacts()]).catch((e) =>
-      tell(e.message),
+      fail(e.message),
     );
   useEffect(() => {
     refresh();
   }, []);
   useEffect(() => {
+    if (attendanceOnly) setTab("attendance");
+  }, [attendanceOnly]);
+  useEffect(() => {
     const timer = window.setTimeout(
-      () => loadContacts().catch((e) => tell(e.message)),
+      () => loadContacts().catch((e) => fail(e.message)),
       250,
     );
     return () => clearTimeout(timer);
@@ -138,7 +119,7 @@ export default function OutreachPage({ volunteerMode = false }) {
     try {
       setHistory(await apiFetch(`/outreach/contacts/${contact._id}`));
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
   const register = async (e) => {
@@ -164,7 +145,7 @@ export default function OutreachPage({ volunteerMode = false }) {
       setTab("contacts");
       await refresh();
     } catch (e2) {
-      tell(e2.message);
+      fail(e2.message);
     } finally {
       setBusy(false);
     }
@@ -180,7 +161,7 @@ export default function OutreachPage({ volunteerMode = false }) {
       await refresh();
       setSelected(null);
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
   const addFollowUp = async (e) => {
@@ -201,7 +182,7 @@ export default function OutreachPage({ volunteerMode = false }) {
       await openContact(selected);
       await refresh();
     } catch (e2) {
-      tell(e2.message);
+      fail(e2.message);
     } finally {
       setBusy(false);
     }
@@ -216,7 +197,7 @@ export default function OutreachPage({ volunteerMode = false }) {
       setInvite({ session: "", confirmation: "pending" });
       await openContact(selected);
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
   const createProgram = async () => {
@@ -229,7 +210,7 @@ export default function OutreachPage({ volunteerMode = false }) {
       await loadMeta();
       tell("Program created.");
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
   const createSession = async () => {
@@ -245,7 +226,7 @@ export default function OutreachPage({ volunteerMode = false }) {
       await loadMeta();
       tell("Session created.");
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
   const createSheet = async () => {
@@ -262,7 +243,7 @@ export default function OutreachPage({ volunteerMode = false }) {
       }));
       tell(d.message);
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
   const mark = async (contactId, status) => {
@@ -278,7 +259,7 @@ export default function OutreachPage({ volunteerMode = false }) {
         ),
       }));
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
   const finalize = async () => {
@@ -303,13 +284,15 @@ export default function OutreachPage({ volunteerMode = false }) {
       tell(d.message);
       await loadDashboard();
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
 
   const tabs = useMemo(
     () =>
-      volunteerMode
+      attendanceOnly
+        ? [["attendance", "Attendance", Clock]]
+        : volunteerMode
         ? [
             ["follow-register", "Follow-up register", CalendarCheck],
             ["contacts", "My contacts", Users],
@@ -321,7 +304,7 @@ export default function OutreachPage({ volunteerMode = false }) {
             ["contacts", "Directory", Users],
             ["attendance", "Attendance", Clock],
           ],
-    [volunteerMode],
+    [attendanceOnly, volunteerMode],
   );
   const interestTotal = dashboard
     ? Object.values(dashboard.interest || {}).reduce((a, b) => a + b, 0)
@@ -353,7 +336,7 @@ export default function OutreachPage({ volunteerMode = false }) {
         followUps: data.followUps || [],
       }));
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
   useEffect(() => {
@@ -378,46 +361,16 @@ export default function OutreachPage({ volunteerMode = false }) {
       tell(data.message);
       await loadFollowRegister();
     } catch (e) {
-      tell(e.message);
+      fail(e.message);
     }
   };
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[.2em] text-primary">
-            Relationship-centred outreach
-          </p>
-          <h1 className="text-3xl font-black text-ink">
-            {volunteerMode ? "My follow-ups" : "Youth Outreach CRM"}
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Registration, responsible follow-up and verified attendance remain
-            separate records.
-          </p>
-        </div>
-        <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-ink shadow-sm">
-          {meta.scope === "team" ? "Team scope" : `Assigned to ${user?.name}`}
-        </span>
-      </div>
-      <div className="mb-6 flex gap-2 overflow-x-auto rounded-2xl bg-white p-2 shadow-sm">
-        {tabs.map(([key, label, Icon]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black ${tab === key ? "bg-primary text-white" : "text-muted hover:bg-soft"}`}
-          >
-            <Icon size={16} />
-            {label}
-          </button>
-        ))}
-      </div>
-      {notice && (
-        <div className="mb-5 rounded-xl bg-ink px-4 py-3 text-sm font-bold text-white">
-          {notice}
-        </div>
-      )}
+      <PageHeader title={volunteerMode ? "My follow-ups" : attendanceOnly ? "Session attendance" : "Youth Outreach CRM"} volunteerMode={volunteerMode} scope={meta.scope} user={user} />
+      <TabNavigation tabs={tabs} active={tab} onChange={setTab} />
+      <NoticeBanner message={notice} />
+      <ErrorBanner message={error} />
 
       {tab === "dashboard" && (
         <div className="space-y-6">

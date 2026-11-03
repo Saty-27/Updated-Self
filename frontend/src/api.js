@@ -21,7 +21,9 @@ export const assetUrl = (url) => {
   return `${API_URL.replace(/\/api$/, "")}${url}`;
 };
 
-export const getToken = () => localStorage.getItem("iskcon_lms_token");
+/* Authentication is held in a Secure, HttpOnly cookie. JavaScript never
+   receives the credential, limiting the impact of an XSS defect. */
+export const getToken = () => null;
 
 export const apiFetch = async (path, options = {}) => {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
@@ -29,6 +31,7 @@ export const apiFetch = async (path, options = {}) => {
   if (token) headers.Authorization = `Bearer ${token}`;
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
+    credentials: "include",
     headers,
     body: options.body && typeof options.body !== "string" ? JSON.stringify(options.body) : options.body
   });
@@ -59,6 +62,7 @@ export const uploadFile = async (file, folder = "general") => {
   form.append("file", file);
   const response = await fetch(`${API_URL}/upload?folder=${folder}`, {
     method: "POST",
+    credentials: "include",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form
   });

@@ -27,16 +27,15 @@ if [ -f "${APP_DIR}/deploy/logrotate-self-excellence.conf" ]; then
     chmod 644 /etc/logrotate.d/self-excellence
 fi
 
-# 4. Backend Dependencies & Log Directory
-echo "--> Setting up backend..."
-cd "${APP_DIR}/backend"
+# 4. Deterministic workspace install and verification
+echo "--> Installing the locked workspace dependency graph..."
+cd "${APP_DIR}"
 mkdir -p logs
-npm install --omit=dev
+npm ci
+npm run verify
 
 # 5. Build Frontend
 echo "--> Building production frontend..."
-cd "${APP_DIR}/frontend"
-npm install
 npm run build
 
 # 6. PM2 Restart with 1 Worker & 280MB Memory Ceiling
